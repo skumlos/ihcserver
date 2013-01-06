@@ -3,10 +3,11 @@
 #include "IHCIO.h"
 
 class IHCInput : public IHCIO {
-public:
+protected:
 	IHCInput(int moduleNumber, int inputNumber) :
 		IHCIO(moduleNumber, inputNumber)
 	{};
+	friend class IHCServer;
 };
 
 #endif /* IHCINPUT_H */

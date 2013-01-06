@@ -3,17 +3,11 @@
 #include "IHCIO.h"
 
 class IHCOutput : public IHCIO {
-public:
+protected:
 	IHCOutput(int moduleNumber, int outputNumber) :
 		IHCIO(moduleNumber,outputNumber)
 	{};
-        void setState(bool newState) {
-                oldState = m_state;
-                m_state = newState;
-                if(m_state != oldState) {
-                        //notify();
-                };
-        };
+	friend class IHCServer;
 };
 
 #endif /* IHCOUTPUT_H */
