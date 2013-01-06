@@ -16,7 +16,6 @@ protected:
 		m_state(false)
 	{};
 
-private:
         void setState(bool newState) {
                 bool oldState = m_state;
                 m_state = newState;
@@ -24,6 +23,8 @@ private:
                         notify();
                 };
         };
+
+private:
 
 	int m_moduleNumber;
 	int m_ioNumber;

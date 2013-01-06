@@ -58,8 +58,8 @@ void IHCServer::updateInputStates(const std::vector<unsigned char>& newStates) {
 					printTimeStamp();
 					printf("Input %d.%d is OFF\n",k+1,j+1);
 				}
-				m_inputs[k][j]->setState(state);
 			}
+			m_inputs[k][j]->setState(state);
 		}
 	}
 }
@@ -77,8 +77,8 @@ void IHCServer::updateOutputStates(const std::vector<unsigned char>& newStates) 
 					printTimeStamp();
 					printf("Output %d.%d is OFF\n",k+1,j+1);
 				}
-				m_outputs[k][j]->setState(state);
 			}
+			m_outputs[k][j]->setState(state);
 		}
 	}
 }
