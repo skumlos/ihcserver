@@ -20,6 +20,8 @@ IHCServer::IHCServer(std::string rs485port)
 		throw false;
 	}
 
+	pthread_mutex_init(&m_packetQueueMutex,NULL);
+
 	for(unsigned int j = 0; j < 16; j++) {
 		std::vector<IHCOutput*> v;
 		for(unsigned int k = 0; k < 8; k++) {
@@ -40,9 +42,17 @@ IHCServer::IHCServer(std::string rs485port)
 }
 
 IHCServer::~IHCServer() {
+	pthread_mutex_destroy(&m_packetQueueMutex);
 }
 
 void IHCServer::changeOutput(IHCOutput* output, bool newState) {
+	std::vector<unsigned char> data;
+	data.push_back((unsigned char) (((output->getModuleNumber()-1)*10)+output->getOutputNumber()));
+	data.push_back(newState ? 1 : 0);
+	IHCRS485Packet packet(IHCDefs::ID_IHC,IHCDefs::SET_OUTPUT,&data);
+	pthread_mutex_lock(&m_packetQueueMutex);
+	m_packetQueue.push_back(packet);
+	pthread_mutex_unlock(&m_packetQueueMutex);
 }
 
 void IHCServer::updateInputStates(const std::vector<unsigned char>& newStates) {
@@ -121,9 +131,9 @@ void IHCServer::thread() {
 	std::vector<unsigned char> outputBlocks(16,0x0);
 	std::vector<unsigned char> inputBlocks(16,0x0);
 
-	int id = IHCDefs::ID_PC;
+	bool sendPackets = false;
 
-	time_t begin = time(NULL);
+	int id = IHCDefs::ID_PC;
 
 	IHCRS485Packet getInputPacket(IHCDefs::ID_IHC, IHCDefs::GET_INPUTS);
 	IHCRS485Packet getOutputPacket(IHCDefs::ID_IHC, IHCDefs::GET_OUTPUTS);
@@ -133,24 +143,41 @@ void IHCServer::thread() {
 
 	while(1) {
 		try {
+
 			IHCRS485Packet packet = getPacket(*m_port,id);
 			switch(packet.getDataType()) {
+				case IHCDefs::ACK:
+				break;
 				case IHCDefs::DATA_READY:
+					pthread_mutex_lock(&m_packetQueueMutex);
+					if(!m_packetQueue.empty() && sendPackets) {
+						IHCRS485Packet toSend = m_packetQueue.front();
+						m_port->write(toSend.getPacket());
+						m_packetQueue.pop_front();
+						sendPackets = true;
+					} else {
+						sendPackets = false;
+					}
+					pthread_mutex_unlock(&m_packetQueueMutex);
+					if(!sendPackets) {
 					if(lastUpdated == IHCDefs::INP_STATE) {
 						m_port->write(getOutputPacket.getPacket());
 					} else {
 						m_port->write(getInputPacket.getPacket());
+					}
 					}
 				break;
 				case IHCDefs::INP_STATE:
 					io = packet.getData();
 					updateInputStates(io);
 					lastUpdated = IHCDefs::INP_STATE;
+					sendPackets = true;
 				break;
 				case IHCDefs::OUTP_STATE:
 					io = packet.getData();
 					updateOutputStates(io);
 					lastUpdated = IHCDefs::OUTP_STATE;
+					sendPackets = true;
 				break;
 			}
 		} catch (...) {
@@ -164,13 +191,12 @@ IHCInput* IHCServer::getInput(int moduleNumber, int inputNumber) {
 	if(moduleNumber < 1 || moduleNumber > 8 || inputNumber > 16 || inputNumber < 1) {
 		return NULL;
 	}
-	return m_inputs[moduleNumber][inputNumber];
+	return m_inputs[moduleNumber-1][inputNumber-1];
 }
 
 IHCOutput* IHCServer::getOutput(int moduleNumber, int outputNumber) {
 	if(moduleNumber < 1 || moduleNumber > 16 || outputNumber > 8 || outputNumber < 1) {
 		return NULL;
 	}
-	return m_outputs[moduleNumber][outputNumber];
+	return m_outputs[moduleNumber-1][outputNumber-1];
 }
-

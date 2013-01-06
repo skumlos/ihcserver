@@ -3,6 +3,8 @@
 #include "IHCIO.h"
 
 class IHCOutput : public IHCIO {
+public:
+	int getOutputNumber() { return getIONumber(); };
 protected:
 	IHCOutput(int moduleNumber, int outputNumber) :
 		IHCIO(moduleNumber,outputNumber)

@@ -3,6 +3,8 @@
 #include "IHCIO.h"
 
 class IHCInput : public IHCIO {
+public:
+	int getInputNumber() { return getIONumber(); };
 protected:
 	IHCInput(int moduleNumber, int inputNumber) :
 		IHCIO(moduleNumber, inputNumber)

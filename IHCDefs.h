@@ -10,7 +10,7 @@ namespace IHCDefs {
 
 	// Commands
 	const unsigned char DATA_READY	= 0x30;
-	const unsigned char SET_OUTPUTS = 0x7A;
+	const unsigned char SET_OUTPUT	= 0x7A;
 	const unsigned char GET_OUTPUTS = 0x82;
 	const unsigned char OUTP_STATE 	= 0x83;
 	const unsigned char GET_INPUTS	= 0x86;

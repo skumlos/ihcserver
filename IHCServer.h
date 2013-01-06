@@ -2,7 +2,9 @@
 #define IHCSERVER_H
 #include <string>
 #include <vector>
+#include <list>
 #include <map>
+#include <pthread.h>
 #include "utils/Thread.h"
 #include "IHCDefs.h"
 #include "IHCRS485Packet.h"
@@ -27,6 +29,8 @@ private:
 	UART* m_port;
 	std::map<int,std::vector<IHCOutput*> > m_outputs;
 	std::map<int,std::vector<IHCInput*> > m_inputs;
+	pthread_mutex_t m_packetQueueMutex;
+	std::list<IHCRS485Packet> m_packetQueue;
 };
 
 #endif /* IHCSERVER_H */
