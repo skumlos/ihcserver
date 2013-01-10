@@ -9,7 +9,7 @@ protected:
 	IHCOutput(int moduleNumber, int outputNumber) :
 		IHCIO(moduleNumber,outputNumber)
 	{};
-	friend class IHCServer;
+	friend class IHCInterface;
 };
 
 #endif /* IHCOUTPUT_H */

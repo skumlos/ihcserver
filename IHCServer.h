@@ -1,36 +1,35 @@
 #ifndef IHCSERVER_H
 #define IHCSERVER_H
-#include <string>
-#include <vector>
-#include <list>
-#include <map>
-#include <pthread.h>
+#include "utils/Observer.h"
 #include "utils/Thread.h"
-#include "IHCDefs.h"
-#include "IHCRS485Packet.h"
-#include "IHCOutput.h"
-#include "IHCInput.h"
+#include "utils/TCPSocketServerCallback.h"
+#include <list>
 
-class UART;
+class IHCInterface;
+class TCPSocketServer;
+class IHCServerWorker;
 
-class IHCServer : public Thread {
+class IHCServer : public Thread, public Observer, public TCPSocketServerCallback {
 public:
-	IHCServer(std::string rs485port);
+	IHCServer();
 	~IHCServer();
 	void thread();
-	IHCInput* getInput(int moduleNumber, int inputNumber);
-	IHCOutput* getOutput(int moduleNumber, int outputNumber);
-	void changeOutput(IHCOutput* output, bool newState);
+	void socketConnected(TCPSocket* newSocket);
+	void update(Subject* sub, void* obj);
+	bool getInputState(int moduleNumber, int inputNumber);
+	bool getOutputState(int moduleNumber, int outputNumber);
 private:
-	IHCRS485Packet getPacket(UART& uart, int ID = IHCDefs::ID_PC, bool useTimeout = true) throw (bool);
-	void updateInputStates(const std::vector<unsigned char>& newStates);
-	void updateOutputStates(const std::vector<unsigned char>& newStates);
+	// The interface to the IHC controller
+	IHCInterface* m_ihcinterface;
 
-	UART* m_port;
-	std::map<int,std::vector<IHCOutput*> > m_outputs;
-	std::map<int,std::vector<IHCInput*> > m_inputs;
-	pthread_mutex_t m_packetQueueMutex;
-	std::list<IHCRS485Packet> m_packetQueue;
+	// Listeners that want to know about changes should register here
+	TCPSocketServer* m_eventServer;
+
+	// Used for the server to propagate I/O events
+	TCPSocketServer* m_requestServer;
+
+	const static int m_requestServerPort = 45200;
+	const static int m_eventServerPort = 45201;
 };
 
 #endif /* IHCSERVER_H */

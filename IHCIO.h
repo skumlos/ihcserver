@@ -30,7 +30,7 @@ private:
 	int m_ioNumber;
 	bool m_state;
 
-	friend class IHCServer;
+	friend class IHCInterface;
 };
 
 #endif /* IHCIO_H */
