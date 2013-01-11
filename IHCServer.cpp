@@ -2,11 +2,15 @@
 #include "IHCInterface.h"
 #include "utils/TCPSocketServer.h"
 #include "IHCServerWorker.h"
+#include "Configuration.h"
 #include <unistd.h>
 #include <cstdio>
 
 IHCServer::IHCServer()
 {
+	m_configuration = Configuration::getInstance();
+	m_configuration->load();
+
 	m_ihcinterface = new IHCInterface("/dev/ttyS1");
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
@@ -77,5 +81,24 @@ void IHCServer::update(Subject* sub, void* obj) {
 
 void IHCServer::socketConnected(TCPSocket* newSocket) {
 	IHCServerWorker* worker = new IHCServerWorker(newSocket,this);
+}
+
+void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {
+	bool currentState = m_configuration->getModuleState(type,moduleNumber);
+	m_configuration->setModuleState(type,moduleNumber,!currentState);
+	return;
+}
+
+bool IHCServer::getModuleState(enum IHCServerDefs::Type type, int moduleNumber) {
+	return m_configuration->getModuleState(type,moduleNumber);
+}
+
+void IHCServer::setIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, std::string description) {
+	m_configuration->setIODescription(type,moduleNumber,ioNumber,description);
+	return;
+}
+
+std::string IHCServer::getIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_configuration->getIODescription(type,moduleNumber,ioNumber);
 }
 
