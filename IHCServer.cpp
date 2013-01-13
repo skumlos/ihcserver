@@ -4,14 +4,22 @@
 #include "IHCServerWorker.h"
 #include "Configuration.h"
 #include <unistd.h>
+#include <cstdlib>
 #include <cstdio>
 
 IHCServer::IHCServer()
 {
 	m_configuration = Configuration::getInstance();
-	m_configuration->load();
+	try {
+		printf("IHCServer loading configuration.\n");
+		m_configuration->load();
+	} catch (...) {
+		printf("Error in configuration, exitting... Edit config file manually.\n");
+		exit(1);
+	}
+	printf("IHCServer loaded configuration.\n");
 
-	m_ihcinterface = new IHCInterface("/dev/ttyS1");
+	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
 	for(unsigned int k = 1; k <= 16; k++) {
