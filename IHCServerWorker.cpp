@@ -146,7 +146,7 @@ void IHCServerWorker::thread() {
 			}
 		}
 	} catch (...) {
-		printf("Exception in socket, probably closed\n");
+//		printf("Exception in socket, probably closed\n");
 	}
 }
 

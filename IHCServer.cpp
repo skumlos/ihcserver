@@ -117,13 +117,13 @@ void IHCServer::thread() {
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
-		printf("Output %d.%d changed\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getOutputNumber());
+//		printf("Output %d.%d changed\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getOutputNumber());
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
-		printf("Input %d.%d changed\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getInputNumber());
+//		printf("Input %d.%d changed\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getInputNumber());
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
 		pthread_cond_signal(&m_eventCond);

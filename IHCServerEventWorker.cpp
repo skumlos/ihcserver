@@ -76,7 +76,7 @@ void IHCServerEventWorker::thread() {
 			pthread_mutex_unlock(&m_messageMutex);
 		}
 	} catch (...) {
-		printf("IHCServerEventWorker: Exception in socket, probably closed\n");
+//		printf("IHCServerEventWorker: Exception in socket, probably closed\n");
 	}
 }
 
