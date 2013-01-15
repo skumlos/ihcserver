@@ -1,7 +1,9 @@
+
 #include "IHCServer.h"
 #include "IHCInterface.h"
 #include "utils/TCPSocketServer.h"
 #include "IHCServerWorker.h"
+#include "IHCServerEventWorker.h"
 #include "Configuration.h"
 #include <unistd.h>
 #include <cstdlib>
@@ -9,6 +11,9 @@
 
 IHCServer::IHCServer()
 {
+	pthread_cond_init(&m_eventCond,NULL);
+	pthread_mutex_init(&m_eventMutex,NULL);
+
 	m_configuration = Configuration::getInstance();
 	try {
 		printf("IHCServer loading configuration.\n");
@@ -17,7 +22,6 @@ IHCServer::IHCServer()
 		printf("Error in configuration, exitting... Edit config file manually.\n");
 		exit(1);
 	}
-	printf("IHCServer loaded configuration.\n");
 
 	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
@@ -53,6 +57,8 @@ IHCServer::~IHCServer() {
 	delete m_requestServer;
 	m_ihcinterface->stop();
 	delete m_ihcinterface;
+	pthread_mutex_destroy(&m_eventMutex);
+	pthread_cond_destroy(&m_eventCond);
 }
 
 bool IHCServer::getInputState(int moduleNumber, int inputNumber) {
@@ -73,22 +79,69 @@ bool IHCServer::getOutputState(int moduleNumber, int outputNumber) {
 	return ret;
 }
 
+void IHCServer::setOutputState(int moduleNumber, int outputNumber, bool state) {
+	IHCOutput* output = m_ihcinterface->getOutput(moduleNumber,outputNumber);
+	if(output != NULL) {
+		m_ihcinterface->changeOutput(output,state);
+	}
+	return;
+}
+
 void IHCServer::thread() {
 	m_requestServer->start();
 	m_eventServer->start();
-	while(m_ihcinterface->isRunning()) { sleep(100); };
+	while(m_ihcinterface->isRunning()) {
+		pthread_mutex_lock(&m_eventMutex);
+		while(m_eventList.empty()) {
+			pthread_cond_wait(&m_eventCond,&m_eventMutex);
+		}
+		IHCIO* io = m_eventList.front();
+		m_eventList.pop_front();
+		pthread_mutex_unlock(&m_eventMutex);
+		std::list<IHCServerWorker*>::const_iterator it;
+		for(it = m_eventListeners.begin(); it != m_eventListeners.end(); it++) {
+			if(dynamic_cast<IHCServerEventWorker*>(*it) != 0) {
+			        int moduleNumber = io->getModuleNumber();
+			        int ioNumber = io->getIONumber();
+			        bool state = io->getState();
+				if(dynamic_cast<IHCOutput*>(io) != 0) {
+					((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::OUTPUT,moduleNumber,ioNumber,state);
+				} else if (dynamic_cast<IHCInput*>(io) != 0) {
+					((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::INPUT,moduleNumber,ioNumber,state);
+				}
+			}
+		}
+		delete io;
+	};
 }
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
 		printf("Output %d.%d changed\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getOutputNumber());
+		pthread_mutex_lock(&m_eventMutex);
+		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
+		pthread_cond_signal(&m_eventCond);
+		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
 		printf("Input %d.%d changed\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getInputNumber());
+		pthread_mutex_lock(&m_eventMutex);
+		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
+		pthread_cond_signal(&m_eventCond);
+		pthread_mutex_unlock(&m_eventMutex);
 	}
 }
 
 void IHCServer::socketConnected(TCPSocket* newSocket) {
-	IHCServerWorker* worker = new IHCServerWorker(newSocket,this);
+	if(newSocket->getPort() == m_eventServerPort) {
+		IHCServerEventWorker* worker = new IHCServerEventWorker(newSocket,this);
+		m_eventListeners.push_back(worker);
+	} else if(newSocket->getPort() == m_requestServerPort) {
+		IHCServerWorker* worker = new IHCServerWorker(newSocket,this);
+	}
+}
+
+void IHCServer::deleteServerWorker(IHCServerWorker* worker) {
+	m_eventListeners.remove(worker);
 }
 
 void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {
@@ -110,3 +163,6 @@ std::string IHCServer::getIODescription(enum IHCServerDefs::Type type, int modul
 	return m_configuration->getIODescription(type,moduleNumber,ioNumber);
 }
 
+void IHCServer::saveConfiguration() {
+	m_configuration->save();
+}

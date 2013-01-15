@@ -9,7 +9,9 @@ class IHCServer;
 class IHCServerWorker : public Thread, public Subject {
 public:
 	IHCServerWorker(TCPSocket* socket, IHCServer* server);
-	void thread();
+	virtual ~IHCServerWorker();
+	virtual void thread();
+	void doCleanup();
 private:
 	TCPSocket* m_socket;
 	IHCServer* m_server;
