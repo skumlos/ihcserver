@@ -1,2 +1,21 @@
-all: 
-	g++ -g utils/Uart.cpp utils/Subject.cpp utils/Thread.cpp utils/TCPSocket.cpp utils/TCPSocketServer.cpp Configuration.cpp IHCInterface.cpp IHCServerEventWorker.cpp IHCServerWorker.cpp IHCServer.cpp main.cpp -lpthread -lssl -o ihcserver
+TOP=.
+IHCLIBS=utils
+LIBS=$(foreach i, $(IHCLIBS), $(TOP)/$(i)/lib$(notdir $(i)).a)
+LDLIBS=-lpthread
+EXEC=ihcserver
+SRCS=$(shell ls *.cpp)
+OBJS=$(SRCS:%.cpp=%.o)
+CPPFLAGS+=-g
+
+all: $(LIBS) $(OBJS)
+	g++ -o $(EXEC) $(OBJS) $(LIBS) $(LDLIBS)
+
+$(LIBS):
+	make -C $(dir $@) lib
+
+clean:
+	$(foreach i, $(IHCLIBS), rm -f $(TOP)/$(i)/*.o)
+	rm -f $(LIBS)
+	rm -f *.o
+	rm -f $(EXEC)
+
