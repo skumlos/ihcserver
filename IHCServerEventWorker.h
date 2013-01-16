@@ -1,3 +1,10 @@
+/**
+ * This class is an worker that waits for I/O changes and sends information about
+ * these to the server formed as a JSON packet.
+ *
+ * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCSERVEREVENTWORKER_H
 #define IHCSERVEREVENTWORKER_H
 #include "IHCServerWorker.h"

@@ -1,3 +1,14 @@
+/**
+ * This is the main interface to the IHC controller
+ * It works by waiting for the DATA_READY/GIVE command (0x30)
+ * addressed to the PC (ID_PC/0x1C). When such a packet is received
+ * it checks if any requests are in, if not it either updates inputs,
+ * or outputs, depending on what was updated upon last DATA_READY
+ * "event".
+ *
+ * December 2012, January 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCINTERFACE_H
 #define IHCINTERFACE_H
 #include <string>

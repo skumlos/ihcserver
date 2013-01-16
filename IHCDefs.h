@@ -1,3 +1,9 @@
+/**
+ * These are definitions for the IHCServer protocol
+ *
+ * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCDEFS_H
 #define IHCDEFS_H
 

@@ -1,3 +1,9 @@
+/**
+ * This class models the packets sent on the RS485 wires of the IHC system
+ *
+ * December 2012, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCRS485PACKET_H
 #define IHCRS485PACKET_H
 #include "IHCDefs.h"

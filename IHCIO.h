@@ -1,3 +1,9 @@
+/**
+ * This is the base class that models I/Os of the IHC system
+ *
+ * December 2012, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCIO_H
 #define IHCIO_H
 #include "utils/Subject.h"

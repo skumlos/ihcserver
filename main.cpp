@@ -1,3 +1,10 @@
+/**
+ * The main function that instantiates IHCServer and
+ * daemonize if needed.
+ *
+ * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #include "IHCServer.h"
 #include <stdio.h>
 #include <stdlib.h>

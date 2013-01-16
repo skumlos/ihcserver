@@ -1,3 +1,9 @@
+/**
+ * This class controls the configuration of IHCServer
+ *
+ * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 #include <string>

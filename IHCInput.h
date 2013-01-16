@@ -1,3 +1,8 @@
+/**
+ * This class models an input in the IHC system
+ *
+ * December 2012, Martin Hejnfelt (martin@hejnfelt.com)
+ */
 #ifndef IHCINPUT_H
 #define IHCINPUT_H
 #include "IHCIO.h"

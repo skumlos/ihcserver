@@ -1,3 +1,13 @@
+/**
+ * This is the main server application for the IHC system.
+ * This class owns an instance of the IHCInterface that
+ * it uses to serve the clients with requests and events.
+ * It owns the two TCPSocketServers that clients connect to
+ * depending on what they want.
+ *
+ * 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCSERVER_H
 #define IHCSERVER_H
 #include "utils/Observer.h"

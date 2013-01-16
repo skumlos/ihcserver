@@ -1,3 +1,9 @@
+/**
+ * This class models an output in the IHC system
+ *
+ * December 2012, Martin Hejnfelt (martin@hejnfelt.com)
+ */
+
 #ifndef IHCOUTPUT_H
 #define IHCOUTPUT_H
 #include "IHCIO.h"
