@@ -1,3 +1,29 @@
+/**
+ * Copyright (c) 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
 #include "IHCServerEventWorker.h"
 #include <string>
 #include <unistd.h>
@@ -27,6 +53,7 @@ IHCServerEventWorker::~IHCServerEventWorker() {
 }
 
 void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state) {
+	// We push the notification in to avoid the caller locking up or whatever during socket i/o
 	pthread_mutex_lock(&m_messageMutex);
 	m_message = new json::Object();
 	if(type == IHCServerDefs::INPUT) {
@@ -48,17 +75,26 @@ void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumbe
 }
 
 void IHCServerEventWorker::thread() {
+	// We dont want sigpipe, instead we ignore and TCPSocket will fire an
+	// exception and make sure we get deleted
 	signal(SIGPIPE,SIG_IGN);
 	try {
 		while(1) {
-			pthread_mutex_lock(&m_messageMutex);
-			while(m_message == NULL) {
-				pthread_cond_wait(&m_messageCond,&m_messageMutex);
-			}
-			pthread_mutex_unlock(&m_messageMutex);
 			std::ostringstream ost;
 			try {
+				pthread_mutex_lock(&m_messageMutex);
+				while(m_message == NULL) {
+					pthread_cond_wait(&m_messageCond,&m_messageMutex);
+				}
+				// We have a message
 				json::Writer::Write(*m_message,ost);
+				pthread_mutex_unlock(&m_messageMutex);
+			} catch (...) {
+				// Shit hit the fan, abort!
+				pthread_mutex_unlock(&m_messageMutex);
+				throw false;
+			}
+			try {
 				int stringlength = ost.str().size();
 				unsigned char* header = new unsigned char[4];
 				header[0] = (unsigned char) (stringlength >> 0);
@@ -76,7 +112,7 @@ void IHCServerEventWorker::thread() {
 			pthread_mutex_unlock(&m_messageMutex);
 		}
 	} catch (...) {
-//		printf("IHCServerEventWorker: Exception in socket, probably closed\n");
+// Exception in socket, probably closed, bail out
 	}
 }
 

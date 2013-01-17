@@ -1,3 +1,27 @@
+/**
+ * Copyright (c) 2013, Martin Hejnfelt (martin@hejnfelt.com)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #include "IHCServer.h"
 #include "IHCInterface.h"
@@ -14,6 +38,7 @@ IHCServer::IHCServer()
 	pthread_cond_init(&m_eventCond,NULL);
 	pthread_mutex_init(&m_eventMutex,NULL);
 
+	// Initialize and load the configuration
 	m_configuration = Configuration::getInstance();
 	try {
 		printf("IHCServer loading configuration.\n");
@@ -23,9 +48,12 @@ IHCServer::IHCServer()
 		exit(1);
 	}
 
+	// Create the interface and tcp socket servers
 	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
+
+	// Attach to all IHC I/Os
 	for(unsigned int k = 1; k <= 16; k++) {
 		for(unsigned int j = 1; j <= 8; j++) {
 			m_ihcinterface->getOutput(k,j)->attach(this);
@@ -36,6 +64,7 @@ IHCServer::IHCServer()
 			m_ihcinterface->getInput(k,j)->attach(this);
 		}
 	}
+	// Lets get running
 	start();
 }
 
@@ -117,13 +146,11 @@ void IHCServer::thread() {
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
-//		printf("Output %d.%d changed\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getOutputNumber());
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
-//		printf("Input %d.%d changed\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getInputNumber());
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
 		pthread_cond_signal(&m_eventCond);
@@ -132,6 +159,7 @@ void IHCServer::update(Subject* sub, void* obj) {
 }
 
 void IHCServer::socketConnected(TCPSocket* newSocket) {
+	// Event listeners goes onto the list of workers we should notify
 	if(newSocket->getPort() == m_eventServerPort) {
 		IHCServerEventWorker* worker = new IHCServerEventWorker(newSocket,this);
 		m_eventListeners.push_back(worker);
@@ -141,7 +169,7 @@ void IHCServer::socketConnected(TCPSocket* newSocket) {
 }
 
 void IHCServer::deleteServerWorker(IHCServerWorker* worker) {
-	m_eventListeners.remove(worker);
+	m_eventListeners.remove(worker); // If on the list, remove
 }
 
 void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {
