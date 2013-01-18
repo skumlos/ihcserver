@@ -5,7 +5,7 @@ This software is meant for monitoring and controlling LK (Lauritz Knudsen) A/S's
 IHC (Intelligent Home Control) system, or at least the I/Os. It is only tested
 with the first Visual controller (the one with the RS-232 port on the front).
 
-It works by monitoring the RS485 bus that is available on the controller, also
+It works by monitoring the RS-485 bus that is available on the controller, also
 used for the voice modem and other LK IHC peripherals.
 
 The controller issues a command addressed to the PC which gives "permission" to
@@ -20,17 +20,20 @@ talking to the controller, and the server that can be communicated with via
 sockets and JSON encoded packets. For the JSON packet stuff, the cajun JSON
 C++ library is used. The library is isolated under the 3rdparty directory.
 
+The software is written for Linux, and requires pthreads for running. It has
+been tested on Ubuntu 12.10 on a Avalue FPC-10W04 that has onboard RS-485.
+
 3. IHC Protocol (AFAIK)
 A packet consists of an STX (0x02), an address (fx. 0x1C, for PC), a command 
 (like 0x30 for permission), possible data packet depending on the command, 
 ETB (0x17) and a CRC that are all the bytes in a packet added up (in 1 byte,
 meaning the value should be AND'ed with 0xFF).
 
-Both the output and the input packets data consists of 16 data bytes, where each
-data byte in an output packet represent the state of an output module (since an
-output module has 8 outputs). Thus getting the state of an output is as simple 
-as AND'ing the byte value with 0x1 shifted left the output number times, eg.
-BYTEVALUE & (0x1 << OUTPUTNUMBER).
+Both the output and the input packets data consists of 16 data bytes, where 
+each data byte in an output packet represent the state of an output module 
+(since an output module has 8 outputs). Thus getting the state of an output 
+is as simple as AND'ing the byte value with 0x1 shifted left the output 
+number times, eg. BYTEVALUE & (0x1 << OUTPUTNUMBER).
 
 The inputs are the same, except one input module has 16 inputs, thus two bytes
 represent a modules inputs state.  
