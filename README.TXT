@@ -21,7 +21,7 @@ sockets and JSON encoded packets. For the JSON packet stuff, the cajun JSON
 C++ library is used. The library is isolated under the 3rdparty directory.
 
 The software is written for Linux, and requires pthreads for running. It has
-been tested on Ubuntu 12.10 on a Avalue FPC-10W04 that has onboard RS-485.
+been tested on Ubuntu 12.10 on a Avalue FPC-08W04 that has onboard RS-485.
 
 3. IHC Protocol (AFAIK)
 A packet consists of an STX (0x02), an address (fx. 0x1C, for PC), a command 
