@@ -27,6 +27,7 @@
 #include "IHCServerWorker.h"
 #include <string>
 #include <unistd.h>
+#include <signal.h>
 #include <cstdio>
 #include <sstream>
 #include "IHCServer.h"
@@ -34,6 +35,8 @@
 #include "IHCServerDefs.h"
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
+
+#include <stdint.h>
 
 IHCServerWorker::IHCServerWorker(TCPSocket* socket,IHCServer* server) :
 	Thread(true),
@@ -48,6 +51,7 @@ IHCServerWorker::~IHCServerWorker() {
 }
 
 void IHCServerWorker::thread() {
+	signal(SIGPIPE,SIG_IGN);
 	try {
 		while(1) {
 			bool data_available = false;
@@ -60,13 +64,14 @@ void IHCServerWorker::thread() {
 			}
 			std::string buffer;
 			m_socket->recv(buffer,4);
-			int toReceive = 0;
-			toReceive += buffer[3] << 24;
-			toReceive += buffer[2] << 16;
-			toReceive += buffer[1] << 8;
-			toReceive += buffer[0] << 0;
+			unsigned int toReceive = 0;
+			toReceive += ((unsigned char)buffer[0] << 24);
+			toReceive += ((unsigned char)buffer[1] << 16);
+			toReceive += ((unsigned char)buffer[2] << 8);
+			toReceive += ((unsigned char)buffer[3] << 0);
+//			printf("Should receive %u\n",toReceive);
 			m_socket->recv(buffer,toReceive);
-
+//			printf("%s\n",buffer.c_str());
 			std::istringstream ist(buffer);
 			json::Object req;
 			json::Reader::Read(req,ist);
@@ -95,6 +100,73 @@ void IHCServerWorker::thread() {
 					resp["moduleNumber"] = json::Number(moduleNumber);
 					resp["outputNumber"] = json::Number(outputNumber);
 					resp["state"] = json::Boolean(state);
+				} else if(type.Value() == "getModuleConfiguration") {
+					std::string moduleType = json::String(req["moduleType"]).Value();
+					int moduleNumber = json::Number(req["moduleNumber"]).Value();
+					m_socket->send(std::string("ACK"));
+					resp["type"] = json::String("moduleConfiguration");
+					resp["moduleNumber"] = json::Number(moduleNumber);
+					resp["moduleType"] = json::String(moduleType);
+					enum IHCServerDefs::Type type;
+					int ios = 0;
+					if(moduleType == "input") {
+						type = IHCServerDefs::INPUTMODULE;
+						ios = 16;
+					} else if(moduleType == "output") {
+						type = IHCServerDefs::OUTPUTMODULE;
+						ios = 8;
+					} else {
+						throw false;
+					}
+					resp["state"] = json::Boolean(m_server->getModuleState(type,moduleNumber));
+					json::Array ioDescriptions;
+					json::Object ioDescription;
+					for(int j = 1; j <= ios; j++) {
+						if(m_server->getIODescription(type,moduleNumber,j) != "") {
+							ioDescription["ioNumber"] = json::Number(j);
+							ioDescription["ioDescription"] = json::String(m_server->getIODescription(type,moduleNumber,j));
+							printf("Description %s found\n",m_server->getIODescription(type,moduleNumber,j).c_str());
+							ioDescriptions.Insert(ioDescription);
+						}
+					}
+					resp["ioDescriptions"] = ioDescriptions;
+				} else if(type.Value() == "setModuleConfiguration") {
+					int moduleNumber = json::Number(req["moduleNumber"]).Value();
+					std::string moduleType = json::String(req["moduleType"]).Value();
+					enum IHCServerDefs::Type type;
+					int ios = 0;
+					if(moduleType == "input") {
+						type = IHCServerDefs::INPUTMODULE;
+					} else if(moduleType == "output") {
+						type = IHCServerDefs::OUTPUTMODULE;
+					} else {
+						throw false;
+					}
+					json::Array::const_iterator it;
+					json::Array ioDescriptions = json::Array(req["ioDescriptions"]);
+					for(it = ioDescriptions.Begin(); it != ioDescriptions.End(); it++) {
+						json::Object ioDescriptionObj = json::Object(*it);
+						int ioNumber = json::Number(ioDescriptionObj["ioNumber"]).Value();
+						std::string ioDescription = json::String(ioDescriptionObj["ioDescription"]).Value();
+						if(ioDescription != "") {
+						m_server->setIODescription(type,moduleNumber,ioNumber,ioDescription);
+						printf("IODescription for %s %d.%d: %s\n",moduleType.c_str(),moduleNumber,ioNumber,ioDescription.c_str());
+						}
+					}
+					m_socket->send(std::string("ACK"));
+					m_server->saveConfiguration();
+				} else if(type.Value() == "getOutputModuleState") {
+					int moduleNumber = json::Number(req["moduleNumber"]).Value();
+					m_socket->send(std::string("ACK"));
+					resp["type"] = json::String("outputModuleState");
+					resp["moduleNumber"] = json::Number(moduleNumber);
+					resp["state"] = json::Boolean(m_server->getModuleState(IHCServerDefs::OUTPUTMODULE,moduleNumber));
+				} else if(type.Value() == "getInputModuleState") {
+					int moduleNumber = json::Number(req["moduleNumber"]).Value();
+					m_socket->send(std::string("ACK"));
+					resp["type"] = json::String("inputModuleState");
+					resp["moduleNumber"] = json::Number(moduleNumber);
+					resp["state"] = json::Boolean(m_server->getModuleState(IHCServerDefs::INPUTMODULE,moduleNumber));
 				} else if(type.Value() == "toggleOutputModule") {
 					int moduleNumber = json::Number(req["moduleNumber"]).Value();
 					m_socket->send(std::string("ACK"));
@@ -125,6 +197,7 @@ void IHCServerWorker::thread() {
 								json::Object inputState;
 								inputState["inputNumber"] = json::Number(k);
 								inputState["inputState"] = json::Boolean(m_server->getInputState(j,k));
+								inputState["description"] = json::String(m_server->getIODescription(IHCServerDefs::INPUTMODULE,j,k));
 								inputStates.Insert(inputState);
 							}
 							module["inputStates"] = inputStates;
@@ -144,6 +217,7 @@ void IHCServerWorker::thread() {
 								json::Object outputState;
 								outputState["outputNumber"] = json::Number(k);
 								outputState["outputState"] = json::Boolean(m_server->getOutputState(j,k));
+								outputState["description"] = json::String(m_server->getIODescription(IHCServerDefs::OUTPUTMODULE,j,k));
 								outputStates.Insert(outputState);
 							}
 							module["outputStates"] = outputStates;
@@ -161,13 +235,15 @@ void IHCServerWorker::thread() {
 				// Ship that response via the socket
 				json::Writer::Write(resp,ost);
 				int stringlength = ost.str().size();
-				unsigned char* header = new unsigned char[4];
-				header[0] = (unsigned char) (stringlength >> 0);
-				header[1] = (unsigned char) (stringlength >> 8);
-				header[2] = (unsigned char) (stringlength >> 16);
-				header[3] = (unsigned char) (stringlength >> 24);
-				m_socket->send(header,4);
-				m_socket->send(ost.str());
+				if(stringlength > 0) {
+					unsigned char* header = new unsigned char[4];
+					header[0] = (unsigned char) (stringlength >> 0);
+					header[1] = (unsigned char) (stringlength >> 8);
+					header[2] = (unsigned char) (stringlength >> 16);
+					header[3] = (unsigned char) (stringlength >> 24);
+					m_socket->send(header,4);
+					m_socket->send(ost.str());
+				}
 			} catch (...) {
 				printf("Exception in json parsing");
 				m_socket->send(std::string("NAK"));

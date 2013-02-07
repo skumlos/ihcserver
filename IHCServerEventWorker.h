@@ -38,21 +38,29 @@
 #include "utils/Thread.h"
 #include "IHCServerDefs.h"
 #include "3rdparty/cajun-2.0.2/json/elements.h"
+#include <list>
 
 class TCPSocket;
 class IHCServer;
 
 class IHCServerEventWorker : public IHCServerWorker {
 public:
-	IHCServerEventWorker(TCPSocket* socket, IHCServer* server);
+	IHCServerEventWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
 	virtual ~IHCServerEventWorker();
 	void thread();
 	void notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state);
+	std::string getClientID() { return m_clientID; };
+	void setSocket(TCPSocket* newSocket);
 private:
+	std::string m_clientID;
 	pthread_mutex_t m_messageMutex;
 	pthread_cond_t m_messageCond;
 
-	json::Object* m_message;
+	pthread_mutex_t m_socketMutex;
+	pthread_cond_t m_socketCond;
+
+	std::list<json::Object*> m_messages;
+//	json::Object* m_message;
 	TCPSocket* m_socket;
 	IHCServer* m_server;
 };

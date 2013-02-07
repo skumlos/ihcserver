@@ -33,10 +33,14 @@
 #include <cstdlib>
 #include <cstdio>
 
+const std::string IHCServer::version = "0.2";
+
 IHCServer::IHCServer()
 {
+	printf("\nIHCServer v%s\nby Martin Hejnfelt\n\n",version.c_str());
 	pthread_cond_init(&m_eventCond,NULL);
 	pthread_mutex_init(&m_eventMutex,NULL);
+	pthread_mutex_init(&m_workerMutex,NULL);
 
 	// Initialize and load the configuration
 	m_configuration = Configuration::getInstance();
@@ -64,6 +68,7 @@ IHCServer::IHCServer()
 			m_ihcinterface->getInput(k,j)->attach(this);
 		}
 	}
+
 	// Lets get running
 	start();
 }
@@ -86,6 +91,7 @@ IHCServer::~IHCServer() {
 	delete m_requestServer;
 	m_ihcinterface->stop();
 	delete m_ihcinterface;
+	pthread_mutex_destroy(&m_workerMutex);
 	pthread_mutex_destroy(&m_eventMutex);
 	pthread_cond_destroy(&m_eventCond);
 }
@@ -146,11 +152,13 @@ void IHCServer::thread() {
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
+//		printf("Output %d.%d is %s\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getIONumber(),(((IHCOutput*)sub)->getState()?"on":"off"));
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
+//		printf("Input %d.%d is %s\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getIONumber(),(((IHCInput*)sub)->getState()?"on":"off"));
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
 		pthread_cond_signal(&m_eventCond);
@@ -161,15 +169,32 @@ void IHCServer::update(Subject* sub, void* obj) {
 void IHCServer::socketConnected(TCPSocket* newSocket) {
 	// Event listeners goes onto the list of workers we should notify
 	if(newSocket->getPort() == m_eventServerPort) {
-		IHCServerEventWorker* worker = new IHCServerEventWorker(newSocket,this);
-		m_eventListeners.push_back(worker);
+		std::string clientID = "";
+		newSocket->recv(clientID);
+		pthread_mutex_lock(&m_workerMutex);
+		std::list<IHCServerWorker*>::iterator it = m_eventListeners.begin();
+		for(; it != m_eventListeners.end(); it++) {
+			if(dynamic_cast<IHCServerEventWorker*>(*it) != 0) {
+				if(clientID == ((IHCServerEventWorker*)(*it))->getClientID()) {
+					((IHCServerEventWorker*)(*it))->setSocket(newSocket);
+					break;
+				}
+			}
+		}
+		if(it == m_eventListeners.end()) {
+			IHCServerEventWorker* worker = new IHCServerEventWorker(clientID,newSocket,this);
+			m_eventListeners.push_back(worker);
+		}
+		pthread_mutex_unlock(&m_workerMutex);
 	} else if(newSocket->getPort() == m_requestServerPort) {
 		IHCServerWorker* worker = new IHCServerWorker(newSocket,this);
 	}
 }
 
 void IHCServer::deleteServerWorker(IHCServerWorker* worker) {
+	pthread_mutex_lock(&m_workerMutex);
 	m_eventListeners.remove(worker); // If on the list, remove
+	pthread_mutex_unlock(&m_workerMutex);
 }
 
 void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {

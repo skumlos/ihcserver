@@ -76,7 +76,6 @@ public:
 
 	void saveConfiguration();
 private:
-
 	// The interface to the IHC controller
 	IHCInterface* m_ihcinterface;
 
@@ -87,6 +86,7 @@ private:
 	std::list<IHCIO*> m_eventList;
 	pthread_cond_t m_eventCond;
 	pthread_mutex_t m_eventMutex;
+	pthread_mutex_t m_workerMutex;
 
 	// This is for external requests to the server
 	TCPSocketServer* m_requestServer;
@@ -94,6 +94,8 @@ private:
 
 	// The instance of the configuration
 	Configuration* m_configuration;
+
+	const static std::string version;
 };
 
 #endif /* IHCSERVER_H */

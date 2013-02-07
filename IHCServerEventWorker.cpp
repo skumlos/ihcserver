@@ -30,64 +30,89 @@
 #include <cstdio>
 #include <sstream>
 #include <signal.h>
+#include <errno.h>
+#include <time.h>
 #include "IHCServer.h"
 #include "utils/TCPSocket.h"
+#include "utils/ms.h"
 #include "IHCServerDefs.h"
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 
-IHCServerEventWorker::IHCServerEventWorker(TCPSocket* socket,IHCServer* server) :
+IHCServerEventWorker::IHCServerEventWorker(std::string clientID, TCPSocket* socket,IHCServer* server) :
+	m_clientID(clientID),
 	IHCServerWorker(socket,server),
-	m_message(NULL),
 	m_socket(socket),
 	m_server(server)
 {
 	pthread_mutex_init(&m_messageMutex,NULL);
 	pthread_cond_init(&m_messageCond,NULL);
+	pthread_mutex_init(&m_socketMutex,NULL);
+	pthread_cond_init(&m_socketCond,NULL);
 	start();
 }
 
 IHCServerEventWorker::~IHCServerEventWorker() {
+	pthread_cond_destroy(&m_socketCond);
+	pthread_mutex_destroy(&m_socketMutex);
 	pthread_cond_destroy(&m_messageCond);
 	pthread_mutex_destroy(&m_messageMutex);
+	while(!m_messages.empty()) {
+		json::Object* message = m_messages.front();
+		m_messages.pop_front();
+		delete message;
+	}
 }
 
 void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state) {
 	// We push the notification in to avoid the caller locking up or whatever during socket i/o
 	pthread_mutex_lock(&m_messageMutex);
-	m_message = new json::Object();
+	json::Object* message = new json::Object();
 	if(type == IHCServerDefs::INPUT) {
-		(*m_message)["type"] = json::String("inputState");
+		(*message)["type"] = json::String("inputState");
 	} else if(type == IHCServerDefs::OUTPUT) {
-		(*m_message)["type"] = json::String("outputState");
+		(*message)["type"] = json::String("outputState");
 	} else {
-		delete m_message;
-		m_message = NULL;
+		delete message;
+		message = NULL;
 		pthread_mutex_unlock(&m_messageMutex);
 		return;
 	}
-	(*m_message)["moduleNumber"] = json::Number(moduleNumber);
-	(*m_message)["ioNumber"] = json::Number(ioNumber);
-	(*m_message)["state"] = json::Boolean(state);
+	(*message)["moduleNumber"] = json::Number(moduleNumber);
+	(*message)["ioNumber"] = json::Number(ioNumber);
+	(*message)["state"] = json::Boolean(state);
+	m_messages.push_back(message);
 	pthread_cond_signal(&m_messageCond);
 	pthread_mutex_unlock(&m_messageMutex);
 	return;
+}
+
+void IHCServerEventWorker::setSocket(TCPSocket* newSocket) {
+	pthread_mutex_lock(&m_socketMutex);
+	delete m_socket;
+	m_socket = newSocket;
+	pthread_cond_signal(&m_socketCond);
+	pthread_mutex_unlock(&m_socketMutex);
 }
 
 void IHCServerEventWorker::thread() {
 	// We dont want sigpipe, instead we ignore and TCPSocket will fire an
 	// exception and make sure we get deleted
 	signal(SIGPIPE,SIG_IGN);
+	unsigned int minDelta_ms = 1000;
 	try {
+		json::Object* message = NULL;
+		unsigned int lastSent_ms = 0;
 		while(1) {
 			std::ostringstream ost;
 			try {
 				pthread_mutex_lock(&m_messageMutex);
-				while(m_message == NULL) {
+				while(m_messages.empty()) {
 					pthread_cond_wait(&m_messageCond,&m_messageMutex);
 				}
-				// We have a message
-				json::Writer::Write(*m_message,ost);
+				// We have message(s)
+				message = m_messages.front();
+				json::Writer::Write(*message,ost);
 				pthread_mutex_unlock(&m_messageMutex);
 			} catch (...) {
 				// Shit hit the fan, abort!
@@ -101,18 +126,34 @@ void IHCServerEventWorker::thread() {
 				header[1] = (unsigned char) (stringlength >> 8);
 				header[2] = (unsigned char) (stringlength >> 16);
 				header[3] = (unsigned char) (stringlength >> 24);
+
+				pthread_mutex_lock(&m_socketMutex);
 				m_socket->send(header,4);
 				m_socket->send(ost.str());
+				pthread_mutex_unlock(&m_socketMutex);
+
+				lastSent_ms = ms::get();
+
+				pthread_mutex_lock(&m_messageMutex);
+ 				m_messages.pop_front();
+				pthread_mutex_unlock(&m_messageMutex);
+
+				delete message;
+				message = NULL;
 			} catch (...) {
-				throw false;
+				struct timespec t;
+				clock_gettime(CLOCK_REALTIME,&t);
+				t.tv_sec += 10;
+				int ret = pthread_cond_timedwait(&m_socketCond,&m_socketMutex,&t);
+				pthread_mutex_unlock(&m_socketMutex);
+				if(ret == ETIMEDOUT) {
+					throw false;
+				}
 			}
-			pthread_mutex_lock(&m_messageMutex);
-			delete m_message;
-			m_message = NULL;
-			pthread_mutex_unlock(&m_messageMutex);
+			while(!ms::isPast(lastSent_ms+minDelta_ms)) usleep(10*1000);
 		}
 	} catch (...) {
-// Exception in socket, probably closed, bail out
+		// Exception in socket, probably closed, bail out
 	}
 }
 
