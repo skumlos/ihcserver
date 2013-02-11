@@ -46,7 +46,7 @@ public:
 	virtual ~IHCServerWorker();
 	virtual void thread();
 	void doCleanup();
-private:
+protected:
 	TCPSocket* m_socket;
 	IHCServer* m_server;
 };

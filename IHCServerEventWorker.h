@@ -61,8 +61,6 @@ private:
 
 	std::list<json::Object*> m_messages;
 //	json::Object* m_message;
-	TCPSocket* m_socket;
-	IHCServer* m_server;
 };
 
 #endif /* IHCSERVEREVENTWORKER_H */

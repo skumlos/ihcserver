@@ -40,10 +40,8 @@
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 
 IHCServerEventWorker::IHCServerEventWorker(std::string clientID, TCPSocket* socket,IHCServer* server) :
-	m_clientID(clientID),
 	IHCServerWorker(socket,server),
-	m_socket(socket),
-	m_server(server)
+	m_clientID(clientID)
 {
 	pthread_mutex_init(&m_messageMutex,NULL);
 	pthread_cond_init(&m_messageCond,NULL);
@@ -99,7 +97,7 @@ void IHCServerEventWorker::thread() {
 	// We dont want sigpipe, instead we ignore and TCPSocket will fire an
 	// exception and make sure we get deleted
 	signal(SIGPIPE,SIG_IGN);
-	unsigned int minDelta_ms = 1000;
+	unsigned int minDelta_ms = 300;
 	try {
 		json::Object* message = NULL;
 		unsigned int lastSent_ms = 0;
