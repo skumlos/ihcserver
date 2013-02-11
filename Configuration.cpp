@@ -76,7 +76,6 @@ void Configuration::load() throw (bool) {
 					json::Object moduleConfig = json::Object(*it);
 					json::Number moduleNumber = json::Number(moduleConfig["moduleNumber"]);
 					json::Boolean moduleState = json::Boolean(moduleConfig["moduleState"]);
-//					std::cout <<"Input module " << moduleNumber.Value() <<": "<< (moduleState.Value() ? "Present" : "Not present") << std::endl;
 					m_moduleStates[IHCServerDefs::INPUTMODULE][moduleNumber.Value()] = moduleState.Value();
 					json::Array::const_iterator desc_it;
 					try {
@@ -86,7 +85,6 @@ void Configuration::load() throw (bool) {
 							json::Number ioNumber = json::Number(ioDescription["ioNumber"]);
 							json::String description = json::String(ioDescription["description"]);
 							m_ioDescriptions[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
-//							std::cout << "Input " << moduleNumber.Value()<<"."<< ioNumber.Value()<<":" << description.Value() << std::endl;
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -97,7 +95,6 @@ void Configuration::load() throw (bool) {
 					json::Object moduleConfig = json::Object(*it);
 					json::Number moduleNumber = json::Number(moduleConfig["moduleNumber"]);
 					json::Boolean moduleState = json::Boolean(moduleConfig["moduleState"]);
-//					std::cout <<"Output module " << moduleNumber.Value() <<": "<< (moduleState.Value() ? "Present" : "Not present") << std::endl;
 					m_moduleStates[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()] = moduleState.Value();
 					json::Array::const_iterator desc_it;
 					try {
@@ -107,7 +104,6 @@ void Configuration::load() throw (bool) {
 							json::Number ioNumber = json::Number(ioDescription["ioNumber"]);
 							json::String description = json::String(ioDescription["description"]);
 							m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
-//							std::cout << "Output " << moduleNumber.Value()<<"."<< ioNumber.Value()<<":" << description.Value() << std::endl;
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -186,7 +182,6 @@ void Configuration::save() {
 					for(desc_it = m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][it2->first].begin();
 						desc_it != m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][it2->first].end();
 						desc_it++) {
-//						printf("Configuration: output %d.%d: %s\n",it2->first,desc_it->first,desc_it->second.c_str());
 						if(desc_it->second != "") {
 							json::Object ioDescription;
 							ioDescription["ioNumber"] = json::Number(desc_it->first);
@@ -203,7 +198,6 @@ void Configuration::save() {
 		modulesConfiguration["inputModules"] = inputModulesConfiguration;
 		modulesConfiguration["outputModules"] = outputModulesConfiguration;
 		conf["modulesConfiguration"] = modulesConfiguration;
-//		std::map<enum IHCServerDefs::Type,std::map<int,std::map<int,std::string> > > m_ioDescriptions;
 		json::Writer::Write(conf,configFile);
 		configFile.close();
 	}
@@ -231,7 +225,6 @@ void Configuration::setIODescription(enum IHCServerDefs::Type type,
 				     int ioNumber,
 				     std::string description)
 {
-	printf("Configuration: Setting the description of module %d.%d to %s\n",moduleNumber,ioNumber,description.c_str());
 	m_ioDescriptions[type][moduleNumber][ioNumber] = description;
 	return;
 }

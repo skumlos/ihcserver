@@ -154,13 +154,11 @@ void IHCServer::thread() {
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
-//		printf("Output %d.%d is %s\n",((IHCOutput*)sub)->getModuleNumber(),((IHCOutput*)sub)->getIONumber(),(((IHCOutput*)sub)->getState()?"on":"off"));
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
-//		printf("Input %d.%d is %s\n",((IHCInput*)sub)->getModuleNumber(),((IHCInput*)sub)->getIONumber(),(((IHCInput*)sub)->getState()?"on":"off"));
 		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
 		pthread_cond_signal(&m_eventCond);
