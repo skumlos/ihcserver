@@ -134,6 +134,7 @@ void IHCServer::thread() {
 		m_eventList.pop_front();
 		pthread_mutex_unlock(&m_eventMutex);
 		std::list<IHCServerWorker*>::const_iterator it;
+		pthread_mutex_lock(&m_workerMutex);
 		for(it = m_eventListeners.begin(); it != m_eventListeners.end(); it++) {
 			if(dynamic_cast<IHCServerEventWorker*>(*it) != 0) {
 			        int moduleNumber = io->getModuleNumber();
@@ -146,6 +147,7 @@ void IHCServer::thread() {
 				}
 			}
 		}
+		pthread_mutex_unlock(&m_workerMutex);
 		delete io;
 	};
 }
