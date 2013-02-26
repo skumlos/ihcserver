@@ -25,41 +25,27 @@
 
 
 /**
+ * This class is used for applications that want to send requests
+ * to IHCServer. It takes in JSON packages, decodes, acts and
+ * responds with a JSON packet again (to those requests that needs it)
+ *
  * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
  */
 
-#ifndef IHCSERVERWORKER_H
-#define IHCSERVERWORKER_H
-#include "utils/Subject.h"
-#include "utils/Thread.h"
-#include <pthread.h>
-#include <string>
+#ifndef IHCSERVERREQUESTWORKER_H
+#define IHCSERVERREQUESTWORKER_H
+#include "IHCServerWorker.h"
+#include "Userlevel.h"
+#include "3rdparty/cajun-2.0.2/json/elements.h"
 
-class TCPSocket;
-class IHCServer;
-
-class IHCServerWorker : public Thread, public Subject {
+class IHCServerRequestWorker : public IHCServerWorker {
 public:
-	IHCServerWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
-
-	virtual ~IHCServerWorker();
-
-	virtual void thread() = 0;
-
-	void doCleanup();
-
-        std::string getClientID() { return m_clientID; };
-
-	void setSocket(TCPSocket* newSocket);
-
-protected:
-        std::string m_clientID;
-	TCPSocket* m_socket;
-	IHCServer* m_server;
-
-        pthread_mutex_t m_socketMutex;
-        pthread_cond_t m_socketCond;
-
+	IHCServerRequestWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
+	virtual ~IHCServerRequestWorker();
+	virtual void thread();
+private:
+	void getAll(json::Object& resp);
+	Userlevel::UserlevelToken* m_token;
 };
 
-#endif /* IHCSERVERWORKER_H */
+#endif /* IHCSERVERREQUESTWORKER_H */

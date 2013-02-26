@@ -30,12 +30,15 @@
 #include <fstream>
 #include <iostream>
 
+pthread_mutex_t Configuration::mutex = PTHREAD_MUTEX_INITIALIZER;
 Configuration* Configuration::instance = 0;
 
 Configuration* Configuration::getInstance() {
+	pthread_mutex_lock(&mutex);
 	if(instance == 0) {
 		instance = new Configuration();
 	}
+	pthread_mutex_unlock(&mutex);
 	return instance;
 }
 
@@ -45,6 +48,7 @@ Configuration::Configuration() :
 }
 
 void Configuration::load() throw (bool) {
+	pthread_mutex_lock(&mutex);
 	std::fstream configFile;
 	configFile.open("/etc/ihcserver.cfg",std::fstream::in);
 	bool saveConfiguration = false;
@@ -53,6 +57,7 @@ void Configuration::load() throw (bool) {
 			configFile.seekg (0, std::ios::end);
 			int length = configFile.tellg();
 			if(length == 0) {
+				pthread_mutex_unlock(&mutex);
 				throw false;
 			}
   			configFile.seekg (0, std::ios::beg);
@@ -67,6 +72,18 @@ void Configuration::load() throw (bool) {
 				printf("Error parsing serial device from configfile, defaulting to /dev/ttyS0\n");
 				m_serialDevice = "/dev/ttyS0";
 				saveConfiguration = true;
+			}
+			try {
+				json::Array variables = conf["variables"];
+				json::Array::const_iterator it;
+				for(it = variables.Begin(); it != variables.End(); it++) {
+					json::Object variable = json::Object(*it);
+					std::string key = json::String(variable["key"]).Value();
+					std::string value = json::String(variable["value"]).Value();
+					m_variables[key] = value;
+				}
+			} catch (...) {
+				printf("No variables found or problem in key/value deciphering\n");
 			}
 			try {
 				json::Array::const_iterator it;
@@ -85,6 +102,8 @@ void Configuration::load() throw (bool) {
 							json::Number ioNumber = json::Number(ioDescription["ioNumber"]);
 							json::String description = json::String(ioDescription["description"]);
 							m_ioDescriptions[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
+							json::Boolean isProtected = json::Boolean(ioDescription["protected"]);
+							m_ioProtected[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isProtected.Value();
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -104,6 +123,8 @@ void Configuration::load() throw (bool) {
 							json::Number ioNumber = json::Number(ioDescription["ioNumber"]);
 							json::String description = json::String(ioDescription["description"]);
 							m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
+							json::Boolean isProtected = json::Boolean(ioDescription["protected"]);
+							m_ioProtected[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isProtected.Value();
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -111,6 +132,7 @@ void Configuration::load() throw (bool) {
 				}
 			} catch(...) {
 				printf("Could not find any module configuration, will write default to config file\n");
+				pthread_mutex_unlock(&mutex);
 				throw false;
 			}
 			configFile.close();
@@ -130,16 +152,20 @@ void Configuration::load() throw (bool) {
 		}
 	} else {
 		printf("Could not access configuration file\n");
+		pthread_mutex_unlock(&mutex);
 		throw false;
 	}
 	if(saveConfiguration) {
 		printf("Saving default configuration\n");
+		pthread_mutex_unlock(&mutex);
 		save();
 		throw false;
 	}
+	pthread_mutex_unlock(&mutex);
 }
 
 void Configuration::save() {
+	pthread_mutex_lock(&mutex);
 	std::fstream configFile;
 	configFile.open("/etc/ihcserver.cfg",(std::ios_base::in | std::ios_base::out | std::ios_base::trunc));
 	if(configFile.is_open()) {
@@ -164,6 +190,7 @@ void Configuration::save() {
 						if(desc_it->second != "") {
 							ioDescription["ioNumber"] = json::Number(desc_it->first);
 							ioDescription["description"] = json::String(desc_it->second);
+							ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::INPUTMODULE][it2->first][desc_it->first]);
 							ioDescriptions.Insert(ioDescription);
 						}
 					}
@@ -186,6 +213,7 @@ void Configuration::save() {
 							json::Object ioDescription;
 							ioDescription["ioNumber"] = json::Number(desc_it->first);
 							ioDescription["description"] = json::String(desc_it->second);
+							ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::OUTPUTMODULE][it2->first][desc_it->first]);
 							ioDescriptions.Insert(ioDescription);
 						}
 					}
@@ -198,9 +226,30 @@ void Configuration::save() {
 		modulesConfiguration["inputModules"] = inputModulesConfiguration;
 		modulesConfiguration["outputModules"] = outputModulesConfiguration;
 		conf["modulesConfiguration"] = modulesConfiguration;
+
+		json::Array jsonVariables;
+		std::map<std::string,std::string>::iterator vit = m_variables.begin();
+		for(; vit != m_variables.end(); vit++) {
+			json::Object variable;
+			variable["key"] = json::String(vit->first);
+			variable["value"] = json::String(vit->second);
+			jsonVariables.Insert(variable);
+		}
+		conf["variables"] = jsonVariables;
+
 		json::Writer::Write(conf,configFile);
 		configFile.close();
 	}
+	pthread_mutex_unlock(&mutex);
+}
+
+std::string Configuration::getValue(std::string variable) {
+	return m_variables[variable];
+}
+
+void Configuration::setValue(std::string variable, std::string value) {
+	m_variables[variable] = value;
+	return;
 }
 
 std::string Configuration::getSerialDevice() {
@@ -214,6 +263,14 @@ bool Configuration::getModuleState(enum IHCServerDefs::Type type, int moduleNumb
 void Configuration::setModuleState(enum IHCServerDefs::Type type, int moduleNumber, bool state) {
 	m_moduleStates[type][moduleNumber] = state;
 	return;
+}
+
+bool Configuration::getIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_ioProtected[type][moduleNumber][ioNumber];
+}
+
+void Configuration::setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected) {
+	m_ioProtected[type][moduleNumber][ioNumber] = isProtected;
 }
 
 std::string Configuration::getIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {

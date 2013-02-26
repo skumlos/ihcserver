@@ -49,18 +49,10 @@ public:
 	virtual ~IHCServerEventWorker();
 	void thread();
 	void notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state);
-	std::string getClientID() { return m_clientID; };
-	void setSocket(TCPSocket* newSocket);
 private:
-	std::string m_clientID;
+	std::list<json::Object*> m_messages;
 	pthread_mutex_t m_messageMutex;
 	pthread_cond_t m_messageCond;
-
-	pthread_mutex_t m_socketMutex;
-	pthread_cond_t m_socketCond;
-
-	std::list<json::Object*> m_messages;
-//	json::Object* m_message;
 };
 
 #endif /* IHCSERVEREVENTWORKER_H */

@@ -28,7 +28,9 @@
 #include "utils/TCPSocketServer.h"
 #include "IHCServerWorker.h"
 #include "IHCServerEventWorker.h"
+#include "IHCServerRequestWorker.h"
 #include "Configuration.h"
+#include "Userlevel.h"
 #include <unistd.h>
 #include <cstdlib>
 #include <cstdio>
@@ -51,6 +53,9 @@ IHCServer::IHCServer()
 		printf("Error in configuration, exitting... Edit config file manually.\n");
 		exit(1);
 	}
+
+	// Initialize userlevel subsystem
+	Userlevel::init();
 
 	// Create the interface and tcp socket servers
 	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
@@ -167,32 +172,51 @@ void IHCServer::update(Subject* sub, void* obj) {
 }
 
 void IHCServer::socketConnected(TCPSocket* newSocket) {
-	// Event listeners goes onto the list of workers we should notify
+	std::string clientID = "";
+/*	if(newSocket->poll(2000) == 0) {
+		// No client id available...
+		printf("No Session ID received, bailing out\n");
+		delete newSocket;
+		return;
+	}*/
+	newSocket->recv(clientID);
+	pthread_mutex_lock(&m_workerMutex);
 	if(newSocket->getPort() == m_eventServerPort) {
-		std::string clientID = "";
-		newSocket->recv(clientID);
-		pthread_mutex_lock(&m_workerMutex);
 		std::list<IHCServerWorker*>::iterator it = m_eventListeners.begin();
 		for(; it != m_eventListeners.end(); it++) {
-			if(dynamic_cast<IHCServerEventWorker*>(*it) != 0) {
-				if(clientID == ((IHCServerEventWorker*)(*it))->getClientID()) {
-					((IHCServerEventWorker*)(*it))->setSocket(newSocket);
-					break;
-				}
+			if(clientID == (*it)->getClientID()) {
+//				printf("Found running event session (%s)\n",clientID.c_str());
+				(*it)->setSocket(newSocket);
+				break;
 			}
 		}
 		if(it == m_eventListeners.end()) {
+//			printf("No running session found (%s), creating new EventWorker\n",clientID.c_str());
 			IHCServerEventWorker* worker = new IHCServerEventWorker(clientID,newSocket,this);
+			// Event listeners goes onto the list of workers we should notify
 			m_eventListeners.push_back(worker);
 		}
-		pthread_mutex_unlock(&m_workerMutex);
 	} else if(newSocket->getPort() == m_requestServerPort) {
-		IHCServerWorker* worker = new IHCServerWorker(newSocket,this);
+		std::list<IHCServerWorker*>::iterator it = m_requestListeners.begin();
+		for(; it != m_requestListeners.end(); it++) {
+			if(clientID == (*it)->getClientID()) {
+//				printf("Found running request session (%s)\n",clientID.c_str());
+				(*it)->setSocket(newSocket);
+				break;
+			}
+		}
+		if(it == m_requestListeners.end()) {
+//			printf("No running session found (%s), creating new RequestWorker\n",clientID.c_str());
+			IHCServerWorker* worker = new IHCServerRequestWorker(clientID,newSocket,this);
+			m_requestListeners.push_back(worker);
+		}
 	}
+	pthread_mutex_unlock(&m_workerMutex);
 }
 
 void IHCServer::deleteServerWorker(IHCServerWorker* worker) {
 	pthread_mutex_lock(&m_workerMutex);
+	m_requestListeners.remove(worker);
 	m_eventListeners.remove(worker); // If on the list, remove
 	pthread_mutex_unlock(&m_workerMutex);
 }
@@ -214,6 +238,14 @@ void IHCServer::setIODescription(enum IHCServerDefs::Type type, int moduleNumber
 
 std::string IHCServer::getIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
 	return m_configuration->getIODescription(type,moduleNumber,ioNumber);
+}
+
+void IHCServer::setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected) {
+	m_configuration->setIOProtected(type,moduleNumber,ioNumber,isProtected);
+}
+
+bool IHCServer::getIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_configuration->getIOProtected(type,moduleNumber,ioNumber);
 }
 
 void IHCServer::saveConfiguration() {

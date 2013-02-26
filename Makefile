@@ -1,7 +1,7 @@
 TOP=.
 IHCLIBS=utils
 LIBS=$(foreach i, $(IHCLIBS), $(TOP)/$(i)/lib$(notdir $(i)).a)
-LDLIBS=-lpthread -lrt
+LDLIBS=-lpthread -lrt -lcrypto -lssl
 EXEC=ihcserver
 SRCS=$(shell ls *.cpp)
 OBJS=$(SRCS:%.cpp=%.o)

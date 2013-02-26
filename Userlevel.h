@@ -23,43 +23,27 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-/**
- * January 2013, Martin Hejnfelt (martin@hejnfelt.com)
- */
-
-#ifndef IHCSERVERWORKER_H
-#define IHCSERVERWORKER_H
-#include "utils/Subject.h"
-#include "utils/Thread.h"
-#include <pthread.h>
+#ifndef USERLEVEL_H
+#define USERLEVEL_H
 #include <string>
 
-class TCPSocket;
-class IHCServer;
+namespace Userlevel {
+	enum Levels {
+		ADMIN,
+		SUPERUSER,
+		BASIC
+	};
 
-class IHCServerWorker : public Thread, public Subject {
-public:
-	IHCServerWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
+	class UserlevelToken;
 
-	virtual ~IHCServerWorker();
+	void init();
 
-	virtual void thread() = 0;
+	void login(UserlevelToken* &token, std::string code);
 
-	void doCleanup();
+	void setCode(enum Levels level, std::string code);
 
-        std::string getClientID() { return m_clientID; };
-
-	void setSocket(TCPSocket* newSocket);
-
-protected:
-        std::string m_clientID;
-	TCPSocket* m_socket;
-	IHCServer* m_server;
-
-        pthread_mutex_t m_socketMutex;
-        pthread_cond_t m_socketCond;
-
+	enum Levels getUserlevel(UserlevelToken* &token);
 };
 
-#endif /* IHCSERVERWORKER_H */
+
+#endif /* USERLEVEL_H */

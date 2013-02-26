@@ -74,6 +74,9 @@ public:
 	void setIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, std::string description);
 	std::string getIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
 
+	void setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected);
+	bool getIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
+
 	void saveConfiguration();
 private:
 	// The interface to the IHC controller
@@ -83,6 +86,7 @@ private:
 	TCPSocketServer* m_eventServer;
 	const static int m_eventServerPort = 45201;
 	std::list<IHCServerWorker*> m_eventListeners;
+	std::list<IHCServerWorker*> m_requestListeners;
 	std::list<IHCIO*> m_eventList;
 	pthread_cond_t m_eventCond;
 	pthread_mutex_t m_eventMutex;

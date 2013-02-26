@@ -39,20 +39,15 @@
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 
-IHCServerEventWorker::IHCServerEventWorker(std::string clientID, TCPSocket* socket,IHCServer* server) :
-	IHCServerWorker(socket,server),
-	m_clientID(clientID)
+IHCServerEventWorker::IHCServerEventWorker(std::string clientID, TCPSocket* socket, IHCServer* server) :
+	IHCServerWorker(clientID,socket,server)
 {
 	pthread_mutex_init(&m_messageMutex,NULL);
 	pthread_cond_init(&m_messageCond,NULL);
-	pthread_mutex_init(&m_socketMutex,NULL);
-	pthread_cond_init(&m_socketCond,NULL);
 	start();
 }
 
 IHCServerEventWorker::~IHCServerEventWorker() {
-	pthread_cond_destroy(&m_socketCond);
-	pthread_mutex_destroy(&m_socketMutex);
 	pthread_cond_destroy(&m_messageCond);
 	pthread_mutex_destroy(&m_messageMutex);
 	while(!m_messages.empty()) {
@@ -83,14 +78,6 @@ void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumbe
 	pthread_cond_signal(&m_messageCond);
 	pthread_mutex_unlock(&m_messageMutex);
 	return;
-}
-
-void IHCServerEventWorker::setSocket(TCPSocket* newSocket) {
-	pthread_mutex_lock(&m_socketMutex);
-	delete m_socket;
-	m_socket = newSocket;
-	pthread_cond_signal(&m_socketCond);
-	pthread_mutex_unlock(&m_socketMutex);
 }
 
 void IHCServerEventWorker::thread() {
