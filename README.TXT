@@ -22,8 +22,9 @@ talking to the controller, and the server that can be communicated with via
 sockets and JSON encoded packets. For the JSON packet stuff, the cajun JSON
 C++ library is used. The library is isolated under the 3rdparty directory.
 
-The software is written for Linux, and requires pthreads for running. It has
-been tested on Ubuntu 12.10 on a Avalue FPC-08W04 that has onboard RS-485.
+The software is written for Linux, and requires pthreads and openssl for 
+running. It has been tested on Ubuntu 12.10 on a Avalue FPC-08W04 that has 
+onboard RS-485.
 
 3. IHC Protocol (AFAIK)
 
@@ -59,8 +60,9 @@ Fixed obvious error in receiver thread with message size calculation.
 
 Fixed potential segfaults regarding iterators in IHCServer.
 
-Added ID retrieval for request listeners to make sure a listener does not
-miss anything if it reconnects again (like the web interface does).
+Added alarm and userlevel stuff.
+
+Added ID stuff to isolate users connected.
 
 Other small fixes and improvements.
 
