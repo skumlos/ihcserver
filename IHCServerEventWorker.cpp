@@ -57,6 +57,27 @@ IHCServerEventWorker::~IHCServerEventWorker() {
 	}
 }
 
+
+void IHCServerEventWorker::notify(enum IHCServerDefs::Event event) {
+	pthread_mutex_lock(&m_messageMutex);
+	json::Object* message = new json::Object();
+	if(event == IHCServerDefs::ALARM_ARMED) {
+		(*message)["type"] = json::String("alarmState");
+		(*message)["state"] = json::Boolean(true);
+	} else if(event == IHCServerDefs::ALARM_DISARMED) {
+		(*message)["type"] = json::String("alarmState");
+		(*message)["state"] = json::Boolean(false);
+	} else {
+		delete message;
+		message = NULL;
+		pthread_mutex_unlock(&m_messageMutex);
+		return;
+	}
+	m_messages.push_back(message);
+	pthread_cond_signal(&m_messageCond);
+	pthread_mutex_unlock(&m_messageMutex);
+}
+
 void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state) {
 	// We push the notification in to avoid the caller locking up or whatever during socket i/o
 	pthread_mutex_lock(&m_messageMutex);

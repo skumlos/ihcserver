@@ -59,7 +59,7 @@ void IHCServerRequestWorker::thread() {
 					// Socket is closed, lets see if another will get in...
 					struct timespec t;
 					clock_gettime(CLOCK_REALTIME,&t);
-					t.tv_sec += 600;
+					t.tv_sec += 240;
 					int ret = pthread_cond_timedwait(&m_socketCond,&m_socketMutex,&t);
 					pthread_mutex_unlock(&m_socketMutex);
 					if(ret == ETIMEDOUT) {
@@ -97,23 +97,51 @@ void IHCServerRequestWorker::thread() {
 						printf("Exception when logging in\n");
 					}
 				} else if(type.Value() == "arm") {
-					if(Userlevel::getUserlevel(m_token) != Userlevel::SUPERUSER) {
+					Userlevel::UserlevelToken *tempToken;
+					std::string input = json::String(req["input"]).Value();
+					try {
+						Userlevel::login(tempToken,input);
+					} catch(...) {
+						printf("Exception when logging in\n");
+					}
+					if(Userlevel::getUserlevel(tempToken) != Userlevel::SUPERUSER) {
 						printf("%s trying to arm without proper level\n",m_clientID.c_str());
 						throw false;
 					}
 					m_socket->send(std::string("ACK"));
-					std::string input = json::String(req["input"]).Value();
-					printf("%s arms with %s\n",m_clientID.c_str(),input.c_str());
+					m_server->setAlarmState(true);
 				} else if(type.Value() == "disarm") {
-					if(Userlevel::getUserlevel(m_token) != Userlevel::SUPERUSER) {
+					Userlevel::UserlevelToken *tempToken;
+					std::string input = json::String(req["input"]).Value();
+					try {
+						Userlevel::login(tempToken,input);
+					} catch(...) {
+						printf("Exception when logging in\n");
+					}
+					if(Userlevel::getUserlevel(tempToken) != Userlevel::SUPERUSER) {
 						printf("%s trying to disarm without proper level\n",m_clientID.c_str());
 						throw false;
 					}
 					m_socket->send(std::string("ACK"));
-					std::string input = json::String(req["input"]).Value();
-					printf("%s disarms with %s\n",m_clientID.c_str(),input.c_str());
+					m_server->setAlarmState(false);
+				} else if(type.Value() == "getAlarmState") {
+					m_socket->send(std::string("ACK"));
+					resp["type"] = type;
+					resp["result"] = json::Boolean(m_server->getAlarmState());
+				} else if(type.Value() == "setCode") {
+					std::string level = json::String(req["level"]).Value();
+					std::string newCode = json::String(req["input"]).Value();
+					m_socket->send(std::string("ACK"));
+					if(newCode != "") {
+						if(Userlevel::getUserlevel(m_token) != Userlevel::ADMIN) {
+							if(level == "admin") {
+								Userlevel::setCode(Userlevel::ADMIN,newCode);
+							} else if (level == "superuser") {
+								Userlevel::setCode(Userlevel::SUPERUSER,newCode);
+							}
+						}
+					}
 				} else if(type.Value() == "checkUserlevel") {
-					printf("checkUserlevel\n%s\n",buffer.c_str());
 					std::string level = json::String(req["data"]).Value();
 					m_socket->send(std::string("ACK"));
 					bool ret = false;
@@ -193,6 +221,16 @@ void IHCServerRequestWorker::thread() {
 						}
 					}
 					resp["ioProtectedStates"] = ioProtectedStates;
+					json::Array ioAlarmStates;
+					for(int j = 1; j <= ios; j++) {
+						json::Object ioAlarm;
+						if(m_server->getIOAlarm(type,moduleNumber,j)) {
+							ioAlarm["ioNumber"] = json::Number(j);
+							ioAlarm["ioAlarm"] = json::Boolean(true);
+							ioAlarmStates.Insert(ioAlarm);
+						}
+					}
+					resp["ioAlarmStates"] = ioAlarmStates;
 				} else if(type.Value() == "setModuleConfiguration") {
 					if(Userlevel::getUserlevel(m_token) != Userlevel::ADMIN) {
 						printf("%s trying to setModuleConfiguration without proper level\n",m_clientID.c_str());
@@ -227,6 +265,13 @@ void IHCServerRequestWorker::thread() {
 						int ioNumber = json::Number(ioProtectedObj["ioNumber"]).Value();
 						bool ioProtected = json::Boolean(ioProtectedObj["ioProtected"]).Value();
 						m_server->setIOProtected(type,moduleNumber,ioNumber,ioProtected);
+					}
+					json::Array ioAlarmStates = json::Array(req["ioAlarmStates"]);
+					for(it = ioAlarmStates.Begin(); it != ioAlarmStates.End(); it++) {
+						json::Object ioAlarmObj = json::Object(*it);
+						int ioNumber = json::Number(ioAlarmObj["ioNumber"]).Value();
+						bool ioAlarm = json::Boolean(ioAlarmObj["ioAlarm"]).Value();
+						m_server->setIOAlarm(type,moduleNumber,ioNumber,ioAlarm);
 					}
 					m_socket->send(std::string("ACK"));
 					m_server->saveConfiguration();

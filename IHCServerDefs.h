@@ -40,6 +40,14 @@ namespace IHCServerDefs {
                 INPUTMODULE,
                 OUTPUTMODULE
         };
+
+	enum Event {
+		UNKNOWN,
+		INPUT_CHANGED,
+		OUTPUT_CHANGED,
+		ALARM_ARMED,
+		ALARM_DISARMED
+	};
 };
 
 #endif /* IHCSERVERDEFS_H */

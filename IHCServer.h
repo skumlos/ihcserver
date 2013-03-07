@@ -49,6 +49,7 @@ class IHCServerEventWorker;
 class Configuration;
 class Reaper;
 class IHCIO;
+class IHCEvent;
 
 class IHCServer : public Thread, public Observer, public TCPSocketServerCallback {
 public:
@@ -77,8 +78,15 @@ public:
 	void setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected);
 	bool getIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
 
+	void setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isAlarm);
+	bool getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
+
+	bool getAlarmState();
+	void setAlarmState(bool alarmState);
+
 	void saveConfiguration();
 private:
+
 	// The interface to the IHC controller
 	IHCInterface* m_ihcinterface;
 
@@ -87,7 +95,8 @@ private:
 	const static int m_eventServerPort = 45201;
 	std::list<IHCServerWorker*> m_eventListeners;
 	std::list<IHCServerWorker*> m_requestListeners;
-	std::list<IHCIO*> m_eventList;
+	std::list<IHCEvent*> m_eventList;
+
 	pthread_cond_t m_eventCond;
 	pthread_mutex_t m_eventMutex;
 	pthread_mutex_t m_workerMutex;
@@ -98,6 +107,8 @@ private:
 
 	// The instance of the configuration
 	Configuration* m_configuration;
+
+	bool m_alarmState;
 
 	const static std::string version;
 };

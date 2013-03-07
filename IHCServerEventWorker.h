@@ -49,6 +49,7 @@ public:
 	virtual ~IHCServerEventWorker();
 	void thread();
 	void notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state);
+	void notify(enum IHCServerDefs::Event event);
 private:
 	std::list<json::Object*> m_messages;
 	pthread_mutex_t m_messageMutex;

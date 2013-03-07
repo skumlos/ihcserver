@@ -104,6 +104,8 @@ void Configuration::load() throw (bool) {
 							m_ioDescriptions[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
 							json::Boolean isProtected = json::Boolean(ioDescription["protected"]);
 							m_ioProtected[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isProtected.Value();
+							json::Boolean isAlarm = json::Boolean(ioDescription["alarm"]);
+							m_ioAlarm[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isAlarm.Value();
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -125,6 +127,8 @@ void Configuration::load() throw (bool) {
 							m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = description.Value();
 							json::Boolean isProtected = json::Boolean(ioDescription["protected"]);
 							m_ioProtected[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isProtected.Value();
+							json::Boolean isAlarm = json::Boolean(ioDescription["alarm"]);
+							m_ioAlarm[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isAlarm.Value();
 						}
 					} catch(...) {
 						printf("No I/O definitions found in configuration\n");
@@ -187,12 +191,11 @@ void Configuration::save() {
 						desc_it != m_ioDescriptions[IHCServerDefs::INPUTMODULE][it2->first].end();
 						desc_it++) {
 						json::Object ioDescription;
-						if(desc_it->second != "") {
-							ioDescription["ioNumber"] = json::Number(desc_it->first);
-							ioDescription["description"] = json::String(desc_it->second);
-							ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::INPUTMODULE][it2->first][desc_it->first]);
-							ioDescriptions.Insert(ioDescription);
-						}
+						ioDescription["ioNumber"] = json::Number(desc_it->first);
+						ioDescription["description"] = json::String(desc_it->second);
+						ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::INPUTMODULE][it2->first][desc_it->first]);
+						ioDescription["alarm"] = json::Boolean(m_ioAlarm[IHCServerDefs::INPUTMODULE][it2->first][desc_it->first]);
+						ioDescriptions.Insert(ioDescription);
 					}
 					moduleConfiguration["ioDescriptions"] = ioDescriptions;
 					inputModulesConfiguration.Insert(moduleConfiguration);
@@ -209,13 +212,12 @@ void Configuration::save() {
 					for(desc_it = m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][it2->first].begin();
 						desc_it != m_ioDescriptions[IHCServerDefs::OUTPUTMODULE][it2->first].end();
 						desc_it++) {
-						if(desc_it->second != "") {
-							json::Object ioDescription;
-							ioDescription["ioNumber"] = json::Number(desc_it->first);
-							ioDescription["description"] = json::String(desc_it->second);
-							ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::OUTPUTMODULE][it2->first][desc_it->first]);
-							ioDescriptions.Insert(ioDescription);
-						}
+						json::Object ioDescription;
+						ioDescription["ioNumber"] = json::Number(desc_it->first);
+						ioDescription["description"] = json::String(desc_it->second);
+						ioDescription["protected"] = json::Boolean(m_ioProtected[IHCServerDefs::OUTPUTMODULE][it2->first][desc_it->first]);
+						ioDescription["alarm"] = json::Boolean(m_ioAlarm[IHCServerDefs::OUTPUTMODULE][it2->first][desc_it->first]);
+						ioDescriptions.Insert(ioDescription);
 					}
 					moduleConfiguration["ioDescriptions"] = ioDescriptions;
 					outputModulesConfiguration.Insert(moduleConfiguration);
@@ -271,6 +273,14 @@ bool Configuration::getIOProtected(enum IHCServerDefs::Type type, int moduleNumb
 
 void Configuration::setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected) {
 	m_ioProtected[type][moduleNumber][ioNumber] = isProtected;
+}
+
+bool Configuration::getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_ioAlarm[type][moduleNumber][ioNumber];
+}
+
+void Configuration::setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isProtected) {
+	m_ioAlarm[type][moduleNumber][ioNumber] = isProtected;
 }
 
 std::string Configuration::getIODescription(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {

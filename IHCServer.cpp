@@ -37,7 +37,16 @@
 
 const std::string IHCServer::version = "0.2";
 
-IHCServer::IHCServer()
+class IHCEvent {
+public:
+	IHCEvent() : m_event(IHCServerDefs::UNKNOWN), m_io(NULL) {};
+
+	enum IHCServerDefs::Event m_event;
+	IHCIO* m_io;
+};
+
+IHCServer::IHCServer() :
+	m_alarmState(false)
 {
 	printf("\nIHCServer v%s\nby Martin Hejnfelt\n\n",version.c_str());
 	pthread_cond_init(&m_eventCond,NULL);
@@ -135,37 +144,57 @@ void IHCServer::thread() {
 		while(m_eventList.empty()) {
 			pthread_cond_wait(&m_eventCond,&m_eventMutex);
 		}
-		IHCIO* io = m_eventList.front();
+		IHCEvent* event = m_eventList.front();
 		m_eventList.pop_front();
 		pthread_mutex_unlock(&m_eventMutex);
 		std::list<IHCServerWorker*>::const_iterator it;
 		pthread_mutex_lock(&m_workerMutex);
 		for(it = m_eventListeners.begin(); it != m_eventListeners.end(); it++) {
-			if(dynamic_cast<IHCServerEventWorker*>(*it) != 0) {
-			        int moduleNumber = io->getModuleNumber();
-			        int ioNumber = io->getIONumber();
-			        bool state = io->getState();
-				if(dynamic_cast<IHCOutput*>(io) != 0) {
-					((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::OUTPUT,moduleNumber,ioNumber,state);
-				} else if (dynamic_cast<IHCInput*>(io) != 0) {
-					((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::INPUT,moduleNumber,ioNumber,state);
+			if(event->m_event == IHCServerDefs::OUTPUT_CHANGED ||
+				event->m_event == IHCServerDefs::INPUT_CHANGED) {
+				if(event->m_io != NULL) {
+			        	int moduleNumber = event->m_io->getModuleNumber();
+			        	int ioNumber = event->m_io->getIONumber();
+			        	bool state = event->m_io->getState();
+					if(dynamic_cast<IHCOutput*>(event->m_io) != 0) {
+						((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::OUTPUT,moduleNumber,ioNumber,state);
+					} else if (dynamic_cast<IHCInput*>(event->m_io) != 0) {
+						((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::INPUT,moduleNumber,ioNumber,state);
+					}
 				}
+			} else {
+				((IHCServerEventWorker*)(*it))->notify(event->m_event);
 			}
 		}
 		pthread_mutex_unlock(&m_workerMutex);
-		delete io;
+		if(event->m_io != NULL) {
+			delete event->m_io;
+		}
+		delete event;
 	};
 }
 
 void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
+		IHCEvent* event = new IHCEvent();
+		event->m_event = IHCServerDefs::OUTPUT_CHANGED;
+		event->m_io = new IHCOutput(*(IHCOutput*)sub);
+		if(m_configuration->getIOAlarm(IHCServerDefs::OUTPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
+			setAlarmState(event->m_io->getState());
+		}
 		pthread_mutex_lock(&m_eventMutex);
-		m_eventList.push_back(new IHCOutput(*(IHCOutput*)sub));
+		m_eventList.push_back(event);
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
+		IHCEvent* event = new IHCEvent();
+		event->m_event = IHCServerDefs::INPUT_CHANGED;
+		event->m_io = new IHCInput(*(IHCInput*)sub);
+		if(m_configuration->getIOAlarm(IHCServerDefs::INPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
+			setAlarmState(event->m_io->getState());
+		}
 		pthread_mutex_lock(&m_eventMutex);
-		m_eventList.push_back(new IHCInput(*(IHCInput*)sub));
+		m_eventList.push_back(event);
 		pthread_cond_signal(&m_eventCond);
 		pthread_mutex_unlock(&m_eventMutex);
 	}
@@ -246,6 +275,67 @@ void IHCServer::setIOProtected(enum IHCServerDefs::Type type, int moduleNumber, 
 
 bool IHCServer::getIOProtected(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
 	return m_configuration->getIOProtected(type,moduleNumber,ioNumber);
+}
+
+void IHCServer::setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isAlarm) {
+	m_configuration->setIOAlarm(type,moduleNumber,ioNumber,isAlarm);
+}
+
+bool IHCServer::getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_configuration->getIOAlarm(type,moduleNumber,ioNumber);
+}
+
+bool IHCServer::getAlarmState() {
+	bool ret = false;
+	for(unsigned int j = 1; j<=8; j++) {
+		for(unsigned int k = 1; k<=16; k++) {
+			if(m_configuration->getIOAlarm(IHCServerDefs::INPUTMODULE,j,k) &&
+				m_ihcinterface->getInput(j,k)->getState()) {
+				ret = true;
+				break;
+			}
+		}
+	}
+	if(!ret) {
+		for(unsigned int j = 1; j<=16; j++) {
+			for(unsigned int k=1; k<=8; k++) {
+				if(m_configuration->getIOAlarm(IHCServerDefs::OUTPUTMODULE,j,k) &&
+					m_ihcinterface->getOutput(j,k)->getState()) {
+					ret = true;
+					break;
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+void IHCServer::setAlarmState(bool alarmState) {
+	bool oldState = m_alarmState;
+	m_alarmState = alarmState;
+	if(m_alarmState != oldState) {
+		IHCEvent* event = new IHCEvent();
+		event->m_event = m_alarmState ? IHCServerDefs::ALARM_ARMED : IHCServerDefs::ALARM_DISARMED;
+/*		for(unsigned int j = 1; j<=8; j++) {
+			for(unsigned int k = 1; k<=16; k++) {
+				if(m_configuration->getIOAlarm(IHCServerDefs::INPUTMODULE,j,k)) {
+					IHCInput* input = m_ihcinterface->getInput(j,k);
+				}
+			}
+		}*/
+		for(unsigned int j = 1; j<=16; j++) {
+			for(unsigned int k = 1; k<=8; k++) {
+				if(m_configuration->getIOAlarm(IHCServerDefs::OUTPUTMODULE,j,k)) {
+					IHCOutput* output = m_ihcinterface->getOutput(j,k);
+					m_ihcinterface->changeOutput(output,m_alarmState);
+				}
+			}
+		}
+		pthread_mutex_lock(&m_eventMutex);
+		m_eventList.push_back(event);
+		pthread_cond_signal(&m_eventCond);
+		pthread_mutex_unlock(&m_eventMutex);
+	}
 }
 
 void IHCServer::saveConfiguration() {
