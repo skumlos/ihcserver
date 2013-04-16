@@ -273,6 +273,10 @@ void IHCServerRequestWorker::thread() {
 						bool ioAlarm = json::Boolean(ioAlarmObj["ioAlarm"]).Value();
 						m_server->setIOAlarm(type,moduleNumber,ioNumber,ioAlarm);
 					}
+					bool moduleState = json::Boolean(req["state"]).Value();
+					if(moduleState != m_server->getModuleState(type,moduleNumber)) {
+						m_server->toggleModuleState(type,moduleNumber);
+					}
 					m_socket->send(std::string("ACK"));
 					m_server->saveConfiguration();
 				} else if(type.Value() == "getOutputModuleState") {
