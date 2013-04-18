@@ -7,4 +7,4 @@ fi
 
 echo "Creating ihcserver-$1.tar.gz";
 
-tar -czf ihcserver-$1.tar.gz *.cpp *.h README.TXT utils/*.h utils/*.cpp 3rdparty/ --exclude='*git*'
+tar -czf ihcserver-$1.tar.gz *.cpp *.h README.TXT webinterface/* utils/*.h utils/*.cpp 3rdparty/ --exclude='*git*'
