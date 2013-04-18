@@ -1,4 +1,4 @@
-IHCServer v0.2
+IHCServer v0.2b
 
 1. Introduction
 
@@ -51,6 +51,10 @@ http://beej.us/guide/bgnet/
 http://www.tooms.dk (Web forum)
 
 5. Changelog
+
+Since 0.2:
+
+Fixed module toggling
 
 Since 0.1:
 
