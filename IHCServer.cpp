@@ -29,20 +29,26 @@
 #include "IHCServerWorker.h"
 #include "IHCServerEventWorker.h"
 #include "IHCServerRequestWorker.h"
+#include "IHCEvent.h"
 #include "Configuration.h"
 #include "Userlevel.h"
+#include "IHCHTTPServer.h"
 #include <unistd.h>
 #include <cstdlib>
 #include <cstdio>
 
 const std::string IHCServer::version = "0.2";
 
-class IHCEvent {
-public:
-	IHCEvent() : m_event(IHCServerDefs::UNKNOWN), m_io(NULL) {};
+IHCServer* IHCServer::m_instance = NULL;
+pthread_mutex_t IHCServer::m_instanceMutex = PTHREAD_MUTEX_INITIALIZER;
 
-	enum IHCServerDefs::Event m_event;
-	IHCIO* m_io;
+IHCServer* IHCServer::getInstance() {
+	pthread_mutex_lock(&m_instanceMutex);
+	if(m_instance == NULL) {
+		m_instance = new IHCServer();
+	}
+	pthread_mutex_unlock(&m_instanceMutex);
+	return m_instance;
 };
 
 IHCServer::IHCServer() :
@@ -70,7 +76,8 @@ IHCServer::IHCServer() :
 	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
-
+	m_httpServer = IHCHTTPServer::getInstance();
+	attach(m_httpServer);
 	// Attach to all IHC I/Os
 	for(unsigned int k = 1; k <= 16; k++) {
 		for(unsigned int j = 1; j <= 8; j++) {
@@ -166,6 +173,7 @@ void IHCServer::thread() {
 				((IHCServerEventWorker*)(*it))->notify(event->m_event);
 			}
 		}
+		notify((void*)event);
 		pthread_mutex_unlock(&m_workerMutex);
 		if(event->m_io != NULL) {
 			delete event->m_io;
@@ -313,6 +321,7 @@ bool IHCServer::getAlarmState() {
 void IHCServer::setAlarmState(bool alarmState) {
 	bool oldState = m_alarmState;
 	m_alarmState = alarmState;
+	printf("New AlarmState %s, old alarmstate %s\n",(m_alarmState ? "TRUE" : "FALSE"), (oldState ? "TRUE" : "FALSE")); 
 	if(m_alarmState != oldState) {
 		IHCEvent* event = new IHCEvent();
 		event->m_event = m_alarmState ? IHCServerDefs::ALARM_ARMED : IHCServerDefs::ALARM_DISARMED;

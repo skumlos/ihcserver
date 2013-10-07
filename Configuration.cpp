@@ -43,7 +43,9 @@ Configuration* Configuration::getInstance() {
 }
 
 Configuration::Configuration() :
-	m_serialDevice("")
+	m_serialDevice(""),
+	m_useHWFlowControl(false),
+	m_webroot("/var/www")
 {
 }
 
@@ -71,6 +73,28 @@ void Configuration::load() throw (bool) {
 			} catch (...) {
 				printf("Error parsing serial device from configfile, defaulting to /dev/ttyS0\n");
 				m_serialDevice = "/dev/ttyS0";
+				saveConfiguration = true;
+			}
+			try {
+				json::Boolean flowControl = conf["useHWFlowControl"];
+				m_useHWFlowControl = flowControl.Value();
+				printf("%s serial flow control\n",(m_useHWFlowControl ? "Using" : "Not using"));
+			} catch (...) {
+				printf("Error parsing flow control from configfile, defaulting to false\n");
+				saveConfiguration = true;
+			}
+			try {
+				json::String webroot = conf["webroot"];
+				if(webroot.Value() != "") {
+					if(webroot.Value().at(0) == '/') {
+						m_webroot = webroot.Value();
+					} else {
+						printf("webroot is not an absolute path! ");
+					}
+				}
+				printf("Using webroot \"%s\"\n",m_webroot.c_str());
+			} catch (...) {
+				printf("Error parsing webroot from configfile, defaulting to %s\n",m_webroot.c_str());
 				saveConfiguration = true;
 			}
 			try {
@@ -175,6 +199,8 @@ void Configuration::save() {
 	if(configFile.is_open()) {
 		json::Object conf;
 		conf["serialDevice"] = json::String(m_serialDevice);
+		conf["useHWFlowControl"] = json::Boolean(m_useHWFlowControl);
+		conf["webroot"] = json::String(m_webroot);
 		json::Array inputModulesConfiguration;
 		json::Array outputModulesConfiguration;
 		std::map<enum IHCServerDefs::Type,std::map<int,bool> >::const_iterator it;

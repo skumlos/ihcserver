@@ -1,6 +1,6 @@
 [submodule "utils"]
 	path = utils
-	url = git@192.168.1.65:/opt/raid/git/utils.git/
+	url = git@192.168.1.1:/opt/raid/git/utils.git/
 [submodule "webinterface"]
 	path = webinterface
-	url = git@192.168.1.65:/opt/raid/git/ihcsite.git
+	url = git@192.168.1.1:/opt/raid/git/ihcsite.git

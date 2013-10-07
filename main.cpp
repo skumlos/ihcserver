@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
 		/* Daemonize */
 		daemonize( "/var/lock/" DAEMON_NAME );
 	}
-	IHCServer* m_ihcserver = new IHCServer();
+	IHCServer* m_ihcserver = IHCServer::getInstance();
 	while(m_ihcserver->isRunning()) {
 		sleep(100);
 	}

@@ -37,6 +37,7 @@
 #ifndef IHCSERVER_H
 #define IHCSERVER_H
 #include "utils/Observer.h"
+#include "utils/Subject.h"
 #include "utils/Thread.h"
 #include "utils/TCPSocketServerCallback.h"
 #include "IHCServerDefs.h"
@@ -46,14 +47,15 @@ class IHCInterface;
 class TCPSocketServer;
 class IHCServerWorker;
 class IHCServerEventWorker;
+class IHCHTTPServer;
 class Configuration;
 class Reaper;
-class IHCIO;
 class IHCEvent;
+class IHCIO;
 
-class IHCServer : public Thread, public Observer, public TCPSocketServerCallback {
+class IHCServer : public Thread, public Observer, public TCPSocketServerCallback, public Subject {
 public:
-	IHCServer();
+	static IHCServer* getInstance();
 	~IHCServer();
 	void thread();
 
@@ -85,7 +87,11 @@ public:
 	void setAlarmState(bool alarmState);
 
 	void saveConfiguration();
+
 private:
+	IHCServer();
+	static pthread_mutex_t m_instanceMutex;
+	static IHCServer* m_instance;
 
 	// The interface to the IHC controller
 	IHCInterface* m_ihcinterface;
@@ -107,6 +113,8 @@ private:
 
 	// The instance of the configuration
 	Configuration* m_configuration;
+
+	IHCHTTPServer* m_httpServer;
 
 	bool m_alarmState;
 

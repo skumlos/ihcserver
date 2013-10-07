@@ -39,10 +39,13 @@ namespace Userlevel {
 	void init();
 
 	void login(UserlevelToken* &token, std::string code);
+	void loginSHA(UserlevelToken* &token, std::string codeSHA);
 
 	void setCode(enum Levels level, std::string code);
+	void setCodeSHA(enum Levels level, std::string codeSHA);
 
 	enum Levels getUserlevel(UserlevelToken* &token);
+	std::string tokenToString(UserlevelToken* &token);
 };
 
 

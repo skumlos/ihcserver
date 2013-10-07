@@ -92,6 +92,27 @@ void Userlevel::setCode(enum Userlevel::Levels level, std::string code) {
 	}
 }
 
+void Userlevel::setCodeSHA(Userlevel::Levels level, std::string codeSHA)
+{
+	std::string var = "";
+	if(level == Userlevel::ADMIN) {
+		var = "ADMIN_SHA1";
+	} else if(level == Userlevel::SUPERUSER) {
+		var = "SUPERUSER_SHA1";
+	}
+	if(var == "") {
+		return;
+	}
+	std::list<Level*>::const_iterator it = levels.begin();
+	for(;it != levels.end(); it++) {
+		if(level == (*it)->m_level) {
+			(*it)->m_code_sha1 = codeSHA;
+			Configuration::getInstance()->setValue(var,codeSHA);
+			Configuration::getInstance()->save();
+		}
+	}
+}
+
 void Userlevel::login(Userlevel::UserlevelToken *&token, std::string code) {
 	unsigned char* md = new unsigned char[SHA_DIGEST_LENGTH];
 	SHA1((unsigned char*)code.c_str(),code.size(),md);
@@ -101,10 +122,14 @@ void Userlevel::login(Userlevel::UserlevelToken *&token, std::string code) {
 	}
 	std::string code_sha1 = ist.str();
 	delete[] md;
+	loginSHA(token,code_sha1);
+}
 
+void Userlevel::loginSHA(Userlevel::UserlevelToken*& token, std::string codeSHA)
+{
 	std::list<Level*>::const_iterator it = levels.begin();
 	for(;it != levels.end(); it++) {
-		if(code_sha1 == (*it)->m_code_sha1) {
+		if(codeSHA == (*it)->m_code_sha1) {
 			token = &(*it)->m_token;
 			break;
 		}
@@ -123,4 +148,24 @@ enum Userlevel::Levels Userlevel::getUserlevel(Userlevel::UserlevelToken* &token
 		}
 	}
 	return Userlevel::BASIC;
+}
+
+std::string Userlevel::tokenToString(Userlevel::UserlevelToken*& token)
+{
+	std::string levelString = "BASIC";
+	std::list<Level*>::const_iterator it = levels.begin();
+	for(;it != levels.end(); it++) {
+		if(token == &(*it)->m_token) {
+			switch((*it)->m_level) {
+				case ADMIN:
+					levelString = "ADMIN";
+				break;
+				case SUPERUSER:
+					levelString = "SUPERUSER";
+				break;
+			}
+			break;
+		}
+	}
+	return levelString;
 }

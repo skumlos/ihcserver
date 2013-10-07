@@ -28,6 +28,7 @@
 #include "utils/Uart.h"
 #include <cstdlib>
 #include <ctime>
+#include "Configuration.h"
 
 void printTimeStamp(time_t t = 0) {
         time_t now = (t == 0 ? time(NULL) : t);
@@ -40,7 +41,8 @@ void printTimeStamp(time_t t = 0) {
 IHCInterface::IHCInterface(std::string rs485port)
 {
 	try {
-		m_port = new UART(rs485port,true);
+		m_port = new UART(rs485port,Configuration::getInstance()->useHWFlowControl());
+//		m_port = new UART(rs485port,true);
 		m_port->setSpeed(B19200);
 	} catch (...) {
 		throw false;
@@ -170,7 +172,7 @@ void IHCInterface::thread() {
 	while(1) {
 		try {
 
-			IHCRS485Packet packet = getPacket(*m_port,id);
+			IHCRS485Packet packet = getPacket(*m_port,id,false);
 			switch(packet.getDataType()) {
 				case IHCDefs::ACK:
 				break;
@@ -206,8 +208,9 @@ void IHCInterface::thread() {
 					sendPackets = true;
 				break;
 			}
-		} catch (...) {
+		} catch (UARTException ex) {
 			printf("Caught exception in communication thread\n");
+			printf("%s\n",ex.getReason().c_str());
 			exit(1);
 		}
 	}
