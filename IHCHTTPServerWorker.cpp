@@ -54,6 +54,10 @@ void IHCHTTPServerWorker::thread() {
 								getAll(response);
 							} else if(req == "toggleOutput") {
 								toggleOutput(request,response);
+							} else if(req == "activateInput") {
+								activateInput(request,true,response);
+							} else if(req == "deactivateInput") {
+								activateInput(request,false,response);
 							} else if(req == "getAlarmState") {
 								getAlarmState(response);
 							} else if(req == "keypadAction") {
@@ -316,7 +320,7 @@ void IHCHTTPServerWorker::toggleOutput(json::Object& req, json::Object& response
 	int outputNumber = json::Number(req["ioNumber"]).Value();
 	std::string id = json::String(req["id"]).Value();
 	pthread_mutex_lock(&m_tokenMapMutex);
-	Userlevel::UserlevelToken* &token = m_tokens[id]; 
+	Userlevel::UserlevelToken* &token = m_tokens[id];
 	pthread_mutex_unlock(&m_tokenMapMutex);
 	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
 	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
@@ -329,6 +333,23 @@ void IHCHTTPServerWorker::toggleOutput(json::Object& req, json::Object& response
 	response["moduleNumber"] = json::Number(moduleNumber);
 	response["outputNumber"] = json::Number(outputNumber);
 	response["state"] = json::Boolean(state);
+	return;
+}
+
+void IHCHTTPServerWorker::activateInput(json::Object& req, bool shouldActivate, json::Object& response) {
+	IHCServer* ihcserver = IHCServer::getInstance();
+	int moduleNumber = json::Number(req["moduleNumber"]).Value();
+	int outputNumber = json::Number(req["ioNumber"]).Value();
+	std::string id = json::String(req["id"]).Value();
+	pthread_mutex_lock(&m_tokenMapMutex);
+	Userlevel::UserlevelToken* &token = m_tokens[id];
+	pthread_mutex_unlock(&m_tokenMapMutex);
+/*	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
+	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
+	{
+		throw false;
+	}*/
+	ihcserver->activateInput(moduleNumber,outputNumber,shouldActivate);
 	return;
 }
 

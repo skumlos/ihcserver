@@ -37,7 +37,7 @@
 #include <cstdlib>
 #include <cstdio>
 
-const std::string IHCServer::version = "0.2";
+const std::string IHCServer::version = "0.3";
 
 IHCServer* IHCServer::m_instance = NULL;
 pthread_mutex_t IHCServer::m_instanceMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -78,16 +78,18 @@ IHCServer::IHCServer() :
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
 	m_httpServer = IHCHTTPServer::getInstance();
 	attach(m_httpServer);
+
 	// Attach to all IHC I/Os
-	for(unsigned int k = 1; k <= 16; k++) {
-		for(unsigned int j = 1; j <= 8; j++) {
-			m_ihcinterface->getOutput(k,j)->attach(this);
-		}
+	std::list<IHCInput*> inputs = m_ihcinterface->getAllInputs();
+	std::list<IHCInput*>::iterator input = inputs.begin();
+	for(; input != inputs.end(); ++input) {
+		(*input)->attach(this);
 	}
-	for(unsigned int k = 1; k <= 8; k++) {
-		for(unsigned int j = 1; j <= 16; j++) {
-			m_ihcinterface->getInput(k,j)->attach(this);
-		}
+
+	std::list<IHCOutput*> outputs = m_ihcinterface->getAllOutputs();
+	std::list<IHCOutput*>::iterator output = outputs.begin();
+	for(; output != outputs.end(); ++output) {
+		(*output)->attach(this);
 	}
 
 	// Lets get running
@@ -96,15 +98,16 @@ IHCServer::IHCServer() :
 
 IHCServer::~IHCServer() {
 	stop();
-	for(unsigned int k = 1; k <= 8; k++) {
-		for(unsigned int j = 1; j <= 16; j++) {
-			m_ihcinterface->getInput(k,j)->detach(this);
-		}
+	std::list<IHCInput*> inputs = m_ihcinterface->getAllInputs();
+	std::list<IHCInput*>::iterator input = inputs.begin();
+	for(; input != inputs.end(); ++input) {
+		(*input)->detach(this);
 	}
-	for(unsigned int k = 1; k <= 16; k++) {
-		for(unsigned int j = 1; j <= 8; j++) {
-			m_ihcinterface->getOutput(k,j)->detach(this);
-		}
+
+	std::list<IHCOutput*> outputs = m_ihcinterface->getAllOutputs();
+	std::list<IHCOutput*>::iterator output = outputs.begin();
+	for(; output != outputs.end(); ++output) {
+		(*output)->detach(this);
 	}
 	m_eventServer->stop();
 	m_requestServer->stop();
@@ -139,6 +142,14 @@ void IHCServer::setOutputState(int moduleNumber, int outputNumber, bool state) {
 	IHCOutput* output = m_ihcinterface->getOutput(moduleNumber,outputNumber);
 	if(output != NULL) {
 		m_ihcinterface->changeOutput(output,state);
+	}
+	return;
+}
+
+void IHCServer::activateInput(int moduleNumber, int inputNumber, bool shouldActivate) {
+	IHCInput* input = m_ihcinterface->getInput(moduleNumber,inputNumber);
+	if(input != NULL) {
+		m_ihcinterface->changeInput(input,shouldActivate);
 	}
 	return;
 }

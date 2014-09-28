@@ -71,6 +71,8 @@ public:
 	bool getOutputState(int moduleNumber, int outputNumber);
 	void setOutputState(int moduleNumber, int outputNumber, bool state);
 
+	void activateInput(int moduleNumber, int inputNumber, bool shouldActivate);
+
 	void toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber);
 	bool getModuleState(enum IHCServerDefs::Type type, int moduleNumber);
 

@@ -50,17 +50,17 @@ IHCInterface::IHCInterface(std::string rs485port)
 
 	pthread_mutex_init(&m_packetQueueMutex,NULL);
 
-	for(unsigned int j = 0; j < 16; j++) {
+	for(unsigned int j = 0; j < 16; ++j) {
 		std::vector<IHCOutput*> v;
-		for(unsigned int k = 0; k < 8; k++) {
+		for(unsigned int k = 0; k < 8; ++k) {
 			IHCOutput* output = new IHCOutput(j+1,k+1);
 			v.push_back(output);
 		}
 		m_outputs[j] = v;
 	}
-	for(unsigned int j = 0; j < 8; j++) {
+	for(unsigned int j = 0; j < 8; ++j) {
 		std::vector<IHCInput*> v;
-		for(unsigned int k = 0; k < 16; k++) {
+		for(unsigned int k = 0; k < 16; ++k) {
 			IHCInput* input = new IHCInput(j+1,k+1);
 			v.push_back(input);
 		}
@@ -76,17 +76,28 @@ IHCInterface::~IHCInterface() {
 void IHCInterface::changeOutput(IHCOutput* output, bool newState) {
 	std::vector<unsigned char> data;
 	data.push_back((unsigned char) (((output->getModuleNumber()-1)*10)+output->getOutputNumber()));
-	data.push_back(newState ? 1 : 0);
+	data.push_back(newState ? (unsigned char)1 : (unsigned char)0);
 	IHCRS485Packet packet(IHCDefs::ID_IHC,IHCDefs::SET_OUTPUT,&data);
 	pthread_mutex_lock(&m_packetQueueMutex);
 	m_packetQueue.push_back(packet);
 	pthread_mutex_unlock(&m_packetQueueMutex);
 }
 
+void IHCInterface::changeInput(IHCInput* input, bool shouldActivate) {
+	std::vector<unsigned char> data;
+	data.push_back((unsigned char) (((input->getModuleNumber()-1)*10)+input->getInputNumber()));
+	data.push_back(shouldActivate ? (unsigned char)1 : (unsigned char)0);
+	IHCRS485Packet packet(IHCDefs::ID_IHC,IHCDefs::ACT_INPUT,&data);
+	packet.print();
+	pthread_mutex_lock(&m_packetQueueMutex);
+	m_packetQueue.push_back(packet);
+	pthread_mutex_unlock(&m_packetQueueMutex);
+}
+
 void IHCInterface::updateInputStates(const std::vector<unsigned char>& newStates) {
-	for(unsigned int k = 0; k < 8; k++) {
+	for(unsigned int k = 0; k < 8; ++k) {
 		unsigned int ioModuleState = newStates[(k*2)] + (newStates[(k*2)+1] << 8);
-		for(unsigned int j = 0; j < 16; j++) {
+		for(unsigned int j = 0; j < 16; ++j) {
 			bool state = (((ioModuleState & (1 << j)) > 0) ? true : false);
 			if(m_inputs[k][j]->getState() != state) {
 				if(state) {
@@ -103,9 +114,9 @@ void IHCInterface::updateInputStates(const std::vector<unsigned char>& newStates
 }
 
 void IHCInterface::updateOutputStates(const std::vector<unsigned char>& newStates) {
-	for(unsigned int k = 0; k < newStates.size(); k++) {
+	for(unsigned int k = 0; k < newStates.size(); ++k) {
 		unsigned char ioModuleState = newStates[k];
-		for(unsigned int j = 0; j < 8; j++) {
+		for(unsigned int j = 0; j < 8; ++j) {
 			bool state = (((ioModuleState & (1 << j)) > 0) ? true : false);
 			if(m_outputs[k][j]->getState() != state) {
 				if(state) {
@@ -131,7 +142,7 @@ IHCRS485Packet IHCInterface::getPacket(UART& uart, int ID, bool useTimeout) thro
 		out_of_frame_bytes = 0;
 		c = uart.readByte();
 		while(c != IHCDefs::STX) { // Syncing with STX
-//			printf("%.2X ",c);
+//			printf("%.2X\n",c);
 			out_of_frame_bytes++;
 			c = uart.readByte();
 		}
@@ -229,3 +240,30 @@ IHCOutput* IHCInterface::getOutput(int moduleNumber, int outputNumber) {
 	}
 	return m_outputs[moduleNumber-1][outputNumber-1];
 }
+
+std::list<IHCInput*> IHCInterface::getAllInputs() {
+	std::list<IHCInput*> ret;
+	std::map<int,std::vector<IHCInput*> >::iterator it = m_inputs.begin();
+	for(; it != m_inputs.end(); ++it) {
+		std::vector<IHCInput*> inputs = it->second;
+		std::vector<IHCInput*>::const_iterator input = inputs.begin();
+		for(; input != inputs.end(); ++input) {
+			ret.push_back((*input));
+		}
+	}
+	return ret;
+}
+
+std::list<IHCOutput*> IHCInterface::getAllOutputs() {
+	std::list<IHCOutput*> ret;
+	std::map<int,std::vector<IHCOutput*> >::iterator it = m_outputs.begin();
+	for(; it != m_outputs.end(); ++it) {
+		std::vector<IHCOutput*> outputs = it->second;
+		std::vector<IHCOutput*>::const_iterator output = outputs.begin();
+		for(; output != outputs.end(); ++output) {
+			ret.push_back((*output));
+		}
+	}
+	return ret;
+}
+

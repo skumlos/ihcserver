@@ -47,6 +47,7 @@ namespace IHCDefs {
 	const unsigned char OUTP_STATE 	= 0x83;
 	const unsigned char GET_INPUTS	= 0x86;
 	const unsigned char INP_STATE	= 0x87;
+	const unsigned char ACT_INPUT	= 0x88;
 
 	// Receiver IDs
 	const unsigned char ID_DISPLAY	= 0x09;

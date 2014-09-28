@@ -57,7 +57,10 @@ public:
 	void thread();
 	IHCInput* getInput(int moduleNumber, int inputNumber);
 	IHCOutput* getOutput(int moduleNumber, int outputNumber);
+	std::list<IHCInput*> getAllInputs();
+	std::list<IHCOutput*> getAllOutputs();
 	void changeOutput(IHCOutput* output, bool newState);
+	void changeInput(IHCInput* input, bool shouldActivate);
 private:
 	IHCRS485Packet getPacket(UART& uart, int ID = IHCDefs::ID_PC, bool useTimeout = true) throw (bool);
 	void updateInputStates(const std::vector<unsigned char>& newStates);

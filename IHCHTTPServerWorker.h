@@ -18,6 +18,7 @@ private:
 	void getAlarmState(json::Object& response);
 	void keypadAction(json::Object& req, json::Object& response);
 	void toggleOutput(json::Object& req, json::Object& response);
+	void activateInput(json::Object& req, bool shouldActivate, json::Object& response);
 	void getModuleConfiguration(json::Object& req, json::Object& resp);
 	void setModuleConfiguration(json::Object& req, json::Object& resp);
 	static pthread_mutex_t m_tokenMapMutex;
