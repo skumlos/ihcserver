@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <sstream>
 #include <fstream>
+#include <unistd.h>
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 pthread_mutex_t IHCHTTPServerWorker::m_tokenMapMutex = PTHREAD_MUTEX_INITIALIZER;
