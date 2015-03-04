@@ -5,8 +5,10 @@
 HTTPRequest::HTTPRequest(const std::string& requestString) :
 	m_requestType(REQ_UNKNOWN),
 	m_requestURI(""),
-	m_payload("")
+	m_payload(""),
+	m_header("")
 {
+//	printf("req: ..%s..\n",requestString.c_str());
 	size_t pos1 = std::string::npos;
 	pos1 = requestString.find("\r\n");
 	if(pos1 != std::string::npos) {
@@ -34,6 +36,7 @@ HTTPRequest::HTTPRequest(const std::string& requestString) :
 	if(pos1 != std::string::npos) {
 		std::string httpHeader = "";
 		std::string httpHeaderTmp = requestString.substr(0,pos1+4);
+		m_header = httpHeaderTmp;
 		for(unsigned int j = 0; j < httpHeaderTmp.size(); j++) {
 			httpHeader += std::tolower(httpHeaderTmp[j]);
 		}

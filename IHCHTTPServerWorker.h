@@ -14,6 +14,7 @@ public:
 	virtual ~IHCHTTPServerWorker();
 	void thread();
 private:
+	void webSocketEventHandler();
 	void getAll(json::Object& resp);
 	void getAlarmState(json::Object& response);
 	void keypadAction(json::Object& req, json::Object& response);

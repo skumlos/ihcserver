@@ -7,10 +7,12 @@
 #include "IHCEvent.h"
 #include "IHCIO.h"
 #include "IHCHTTPServer.h"
+#include "base64.h"
 #include <cstdio>
 #include <sstream>
 #include <fstream>
 #include <unistd.h>
+#include <openssl/sha.h>
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 pthread_mutex_t IHCHTTPServerWorker::m_tokenMapMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -155,6 +157,46 @@ void IHCHTTPServerWorker::thread() {
 						header << "Connection: close\r\n\r\n";
 						m_socket->send(header.str());
 						m_socket->send(ost.str());
+						}
+					} else if (requestURI == "/ihcevents-ws") {
+						std::string header(req.getHeader());
+//						printf("Header .%s.\n",header.c_str());
+						const std::string versionString = "Sec-WebSocket-Version: ";
+						const std::string keyString = "Sec-WebSocket-Key: ";
+
+/*						size_t p = header.find(versionString);
+						if(p != std::string::npos) {
+							size_t p2 = header.find("\r\n",p);
+							if(p2 != std::string::npos) {
+								printf("version %s.\n",header.substr(p+versionString.size(),p2-p-versionString.size()).c_str());
+							}
+						}*/
+						std::string key = "";
+						size_t p = header.find(keyString);
+						if(p != std::string::npos) {
+							size_t p2 = header.find("\r\n",p);
+							if(p2 != std::string::npos) {
+								key = header.substr(p+keyString.size(),p2-p-keyString.size());
+//								printf("key %s.\n",key.c_str());
+							}
+						}
+						if(key != "") {
+							const std::string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+							std::string c(key+GUID);
+							const int hashlen = 20;
+							unsigned char hash[hashlen];
+							SHA1((const unsigned char*)c.c_str(), c.size(), hash);
+							std::string acceptKey = base64_encode(hash,hashlen);
+//							printf("acceptKey %s\n",acceptKey.c_str());
+
+							std::ostringstream header;
+							header << "HTTP/1.1 101 Switching Protocols\r\n";
+							header << "Upgrade: websocket\r\n";
+							header << "Connection: Upgrade\r\n";
+							header << "Sec-WebSocket-Accept: " << acceptKey << "\r\n";
+                            				header << "\r\n";
+							m_socket->send(header.str());
+							webSocketEventHandler();
 						}
 					} else {
 						std::string URI = req.getRequestURI();
@@ -464,4 +506,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		IHCServer::getInstance()->setAlarmState(false);
 	}
 	response["result"] = json::Boolean(true);
+}
+
+void IHCHTTPServerWorker::webSocketEventHandler() {
 }
