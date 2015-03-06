@@ -357,6 +357,8 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		if(input != "") {
 			if(Userlevel::getUserlevel(token) == Userlevel::ADMIN) {
 				Userlevel::setCodeSHA(Userlevel::ADMIN,input);
+			} else {
+				throw false;
 			}
 		}
 	} else if(action == "setSuperUserCode") {
@@ -364,6 +366,8 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 			if(Userlevel::getUserlevel(token) == Userlevel::SUPERUSER || 
 				Userlevel::getUserlevel(token) == Userlevel::ADMIN) {
 				Userlevel::setCodeSHA(Userlevel::SUPERUSER,input);
+			} else {
+				throw false;
 			}
 		}
 	} else if(action == "login") {
@@ -372,6 +376,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		} catch(...) {
 			printf("Exception when logging in\n");
 		}
+		response["Userlevel"] = json::String(Userlevel::tokenToString(token));
 	} else if(action == "arm-alarm") {
 		Userlevel::UserlevelToken *tempToken;
 		try {
