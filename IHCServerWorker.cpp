@@ -19,7 +19,6 @@ IHCServerWorker::~IHCServerWorker() {
 }
 
 void IHCServerWorker::doCleanup() {
-	m_server->deleteServerWorker(this);
 }
 
 void IHCServerWorker::setSocket(TCPSocket* newSocket) {

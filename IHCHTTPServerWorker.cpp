@@ -20,8 +20,12 @@ std::map<std::string,Userlevel::UserlevelToken*> IHCHTTPServerWorker::m_tokens;
 
 IHCHTTPServerWorker::IHCHTTPServerWorker(TCPSocket* connectedSocket) :
 	Thread(true),
-	m_socket(connectedSocket)
-{	start();
+	m_socket(connectedSocket),
+	m_ihcServer(IHCServer::getInstance()),
+	m_eventMutex(NULL),
+	m_eventCond(NULL)
+{
+	start();
 }
 
 IHCHTTPServerWorker::~IHCHTTPServerWorker() {
@@ -30,216 +34,104 @@ IHCHTTPServerWorker::~IHCHTTPServerWorker() {
 
 void IHCHTTPServerWorker::thread() {
 	std::string webroot = Configuration::getInstance()->getWebroot();
-	while(m_socket->isOpen()) {
-		try {
-			while(m_socket->poll(1000)) { sleep(1); };
-				std::string buffer = "";
-				std::string buf = "";
-				while(m_socket->peek() > 0) {
-					m_socket->recv(buf);
-					buffer += buf;
-					usleep(100*1000);
-				}
-				if(buffer != "") {
-					HTTPRequest req(buffer);
-//					printf("Buffer:\n%s\n",buffer.c_str());
-					printf("Request type %d, URI: %s. Payload: %s.\n",req.getRequestType(),req.getRequestURI().c_str(),req.getPayload().c_str());
-					std::string response = "";
-					std::string requestURI = req.getRequestURI();
-					if(requestURI == "/ihcrequest") {
-						json::Object request;
-						std::istringstream ist(req.getPayload());
-						json::Reader::Read(request,ist);
-						json::Object response;
-						try {
-							std::string req = json::String(request["type"]).Value();
-							if(req == "getAll") {
-								getAll(response);
-							} else if(req == "toggleOutput") {
-								toggleOutput(request,response);
-							} else if(req == "activateInput") {
-								activateInput(request,true,response);
-							} else if(req == "deactivateInput") {
-								activateInput(request,false,response);
-							} else if(req == "getAlarmState") {
-								getAlarmState(response);
-							} else if(req == "keypadAction") {
-								keypadAction(request,response);
-							} else if(req == "getModuleConfiguration") {
-								getModuleConfiguration(request,response);
-							} else if(req == "setModuleConfiguration") {
-								setModuleConfiguration(request,response);
-							}
-							std::ostringstream ost;
-							json::Writer::Write(response,ost);
-							std::ostringstream header;
-							header << "HTTP/1.1 200 OK\r\n";
-							header << "Content-Length: " << ost.str().size() << "\r\n";
-							header << "Content-type: application/json" << "\r\n";
-							header << "Connection: close\r\n\r\n";
-							m_socket->send(header.str());
-							m_socket->send(ost.str());
-						} catch (bool ex) {
-							std::ostringstream header;
-							header << "HTTP/1.1 403 Forbidden\r\n";
-							header << "Content-Length: 0\r\n";
-							header << "Connection: close\r\n\r\n";
-							m_socket->send(header.str());
-						}
-					} else if (requestURI == "/ihcevents") {
-						int lastEventNumber = 0;
-						json::Object response;
-						if(req.getPayload() != "") {
-							json::Object request;
-							std::istringstream ist(req.getPayload());
-							json::Reader::Read(request,ist);
-							try {
-								lastEventNumber = json::Number(request["lastEventNumber"]);
-							} catch(...) {
-								printf("Could not get last event number\n");
-							}
-						}
-						IHCHTTPServer* ihcHttpServer = IHCHTTPServer::getInstance();
-						pthread_mutex_lock(&ihcHttpServer->m_eventMutex);
-						if(lastEventNumber == 0 || lastEventNumber > ihcHttpServer->m_ihcEvents.front()->getEventNumber()) {
-							lastEventNumber = ihcHttpServer->m_ihcEvents.front()->getEventNumber();
-						}
-						IHCEvent* ihcEvent = NULL;
-						if(lastEventNumber != ihcHttpServer->m_ihcEvents.front()->getEventNumber()) {
-							std::list<IHCEvent*>::iterator it = ihcHttpServer->m_ihcEvents.begin();
-							for(; it != ihcHttpServer->m_ihcEvents.end(); it++) {
-								if((*it)->getEventNumber() == lastEventNumber) {
-									it--;
-									ihcEvent = (*it);
-									break;
-								}
-							}
-							if(it == ihcHttpServer->m_ihcEvents.end()) {
-								ihcEvent = ihcHttpServer->m_ihcEvents.back();
-							}
-						} else {
-							while(ihcHttpServer->m_ihcEvents.front()->getEventNumber() == lastEventNumber) {
-								pthread_cond_wait(&ihcHttpServer->m_eventCond,&ihcHttpServer->m_eventMutex);
-							}
-							ihcEvent = ihcHttpServer->m_ihcEvents.front();
-						}
-						if(ihcEvent != NULL) {
-						switch(ihcEvent->m_event) {
-							case IHCServerDefs::ALARM_ARMED:
-								response["type"] = json::String("alarmState");
-								response["state"] = json::Boolean(true);
-							break;
-							case IHCServerDefs::ALARM_DISARMED:
-								response["type"] = json::String("alarmState");
-								response["state"] = json::Boolean(false);
-							break;
-							case IHCServerDefs::INPUT_CHANGED:
-								response["type"] = json::String("inputState");
-								response["moduleNumber"] = json::Number(ihcEvent->m_io->getModuleNumber());
-								response["ioNumber"] = json::Number(ihcEvent->m_io->getIONumber());
-								response["state"] = json::Boolean(ihcEvent->m_io->getState());
-							break;
-							case IHCServerDefs::OUTPUT_CHANGED:
-								response["type"] = json::String("outputState");
-								response["moduleNumber"] = json::Number(ihcEvent->m_io->getModuleNumber());
-								response["ioNumber"] = json::Number(ihcEvent->m_io->getIONumber());
-								response["state"] = json::Boolean(ihcEvent->m_io->getState());
-							break;
-						}
-						response["lastEventNumber"] = json::Number(ihcEvent->getEventNumber());
-						pthread_mutex_unlock(&ihcHttpServer->m_eventMutex);
-						std::ostringstream ost;
-						json::Writer::Write(response,ost);
-						std::ostringstream header;
-						header << "HTTP/1.1 200 OK\r\n";
-						header << "Content-Length: " << ost.str().size() << "\r\n";
-						header << "Content-type: application/json" << "\r\n";
-						header << "Connection: close\r\n\r\n";
-						m_socket->send(header.str());
-						m_socket->send(ost.str());
-						}
-					} else if (requestURI == "/ihcevents-ws") {
-						std::string header(req.getHeader());
-//						printf("Header .%s.\n",header.c_str());
-						const std::string versionString = "Sec-WebSocket-Version: ";
-						const std::string keyString = "Sec-WebSocket-Key: ";
-
-/*						size_t p = header.find(versionString);
-						if(p != std::string::npos) {
-							size_t p2 = header.find("\r\n",p);
-							if(p2 != std::string::npos) {
-								printf("version %s.\n",header.substr(p+versionString.size(),p2-p-versionString.size()).c_str());
-							}
-						}*/
-						std::string key = "";
-						size_t p = header.find(keyString);
-						if(p != std::string::npos) {
-							size_t p2 = header.find("\r\n",p);
-							if(p2 != std::string::npos) {
-								key = header.substr(p+keyString.size(),p2-p-keyString.size());
-//								printf("key %s.\n",key.c_str());
-							}
-						}
-						if(key != "") {
-							const std::string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-							std::string c(key+GUID);
-							const int hashlen = 20;
-							unsigned char hash[hashlen];
-							SHA1((const unsigned char*)c.c_str(), c.size(), hash);
-							std::string acceptKey = base64_encode(hash,hashlen);
-//							printf("acceptKey %s\n",acceptKey.c_str());
-
-							std::ostringstream header;
-							header << "HTTP/1.1 101 Switching Protocols\r\n";
-							header << "Upgrade: websocket\r\n";
-							header << "Connection: Upgrade\r\n";
-							header << "Sec-WebSocket-Accept: " << acceptKey << "\r\n";
-                            				header << "\r\n";
-							m_socket->send(header.str());
-							webSocketEventHandler();
-						}
-					} else {
-						std::string URI = req.getRequestURI();
-						if(URI.find("/") != 0) {
-							URI.insert(0,"/");
-						}
-						if(URI == "/") {
-							URI = "/index2.html";
-						}
-						URI.insert(0,webroot);
-						std::ifstream file;
-						file.open(URI.c_str(), (std::ios::in | std::ios::binary | std::ios::ate));
-						if(file.is_open()) {
-							unsigned int size = 0;
-							size = file.tellg();
-							char* memblock = new char [size];
-							file.seekg (0, std::ios::beg);
-							file.read (memblock, size);
-							file.close();
-							std::ostringstream header;
-							header << "HTTP/1.1 200 OK\r\n";
-							header << "Content-Length: " << size << "\r\n";
-							header << "Connection: close\r\n\r\n";
-							m_socket->send(header.str());
- 							m_socket->send((unsigned char*)memblock,size);
-							delete[] memblock;
-						} else {
-							printf("Could not open %s\n",URI.c_str());
-							std::ostringstream header;
-							header << "HTTP/1.1 404 Not Found\r\n";
-							header << "Content-Length: 0\r\n";
-							header << "Connection: close\r\n\r\n";
-							m_socket->send(header.str());
-						}
-					}
-				} else if(buffer == "" && m_socket->peek() <= 0) {
-					break;
-				}
-		} catch (...) {
-			printf("Exception in IHCHTTPServerWorker\n");
+	try {
+		while(m_socket->poll(1000)) { sleep(1); };
+		std::string buffer = "";
+		std::string buf = "";
+		while(m_socket->peek() > 0) {
+			m_socket->recv(buf);
+			buffer += buf;
+			usleep(100*1000);
 		}
+		if(buffer != "") {
+			HTTPRequest req(buffer);
+//			printf("Buffer:\n%s\n",buffer.c_str());
+//			printf("Request type %d, URI: %s. Payload: %s.\n",req.getRequestType(),req.getRequestURI().c_str(),req.getPayload().c_str());
+			std::string requestURI = req.getRequestURI();
+			if(requestURI == "/ihcrequest") {
+				json::Object request;
+				std::istringstream ist(req.getPayload());
+				json::Reader::Read(request,ist);
+				json::Object response;
+				try {
+					std::string req = json::String(request["type"]).Value();
+					if(req == "getAll") {
+						getAll(response);
+					} else if(req == "toggleOutput") {
+						toggleOutput(request,response);
+					} else if(req == "activateInput") {
+						activateInput(request,true,response);
+					} else if(req == "deactivateInput") {
+						activateInput(request,false,response);
+					} else if(req == "getAlarmState") {
+						getAlarmState(response);
+					} else if(req == "keypadAction") {
+						keypadAction(request,response);
+					} else if(req == "getModuleConfiguration") {
+						getModuleConfiguration(request,response);
+					} else if(req == "setModuleConfiguration") {
+						setModuleConfiguration(request,response);
+					}
+					std::ostringstream ost;
+					json::Writer::Write(response,ost);
+					std::ostringstream header;
+					header << "HTTP/1.1 200 OK\r\n";
+					header << "Content-Length: " << ost.str().size() << "\r\n";
+					header << "Content-type: application/json" << "\r\n";
+					header << "Connection: close\r\n\r\n";
+					m_socket->send(header.str());
+					m_socket->send(ost.str());
+				} catch (bool ex) {
+					std::ostringstream header;
+					header << "HTTP/1.1 403 Forbidden\r\n";
+					header << "Content-Length: 0\r\n";
+					header << "Connection: close\r\n\r\n";
+					m_socket->send(header.str());
+				}
+			} else if (requestURI == "/ihcevents-ws" && handleWebSocketHandshake(req.getHeader())) {
+				webSocketEventHandler();
+			} else {
+				std::string URI = req.getRequestURI();
+				if(URI.find("/") != 0) {
+					URI.insert(0,"/");
+				}
+				if(URI == "/") {
+					URI = "/index.html";
+				}
+				URI.insert(0,webroot);
+				std::ifstream file;
+				file.open(URI.c_str(), (std::ios::in | std::ios::binary | std::ios::ate));
+				if(file.is_open()) {
+					unsigned int size = 0;
+					size = file.tellg();
+					char* memblock = new char [size];
+					file.seekg (0, std::ios::beg);
+					file.read (memblock, size);
+					file.close();
+					std::ostringstream header;
+					header << "HTTP/1.1 200 OK\r\n";
+					header << "Content-Length: " << size << "\r\n";
+					header << "Connection: close\r\n\r\n";
+					m_socket->send(header.str());
+					m_socket->send((unsigned char*)memblock,size);
+					delete[] memblock;
+				} else {
+					printf("Could not open %s\n",URI.c_str());
+					std::ostringstream header;
+					header << "HTTP/1.1 404 Not Found\r\n";
+					header << "Content-Length: 0\r\n";
+					header << "Connection: close\r\n\r\n";
+					m_socket->send(header.str());
+				}
+			}
+		} else if(buffer == "" && m_socket->peek() <= 0) {
+//			break;
+		}
+	} catch (...) {
+		printf("Exception in IHCHTTPServerWorker\n");
 	}
 }
+
 void IHCHTTPServerWorker::getModuleConfiguration(json::Object& req, json::Object& resp)
 {
 	IHCServer* ihcserver = IHCServer::getInstance();
@@ -508,5 +400,123 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 	response["result"] = json::Boolean(true);
 }
 
+bool IHCHTTPServerWorker::handleWebSocketHandshake(const std::string& header) {
+	bool r = false;
+//	printf("Header .%s.\n",header.c_str());
+	const std::string versionString = "Sec-WebSocket-Version: ";
+	const std::string keyString = "Sec-WebSocket-Key: ";
+
+/*	size_t p = header.find(versionString);
+	if(p != std::string::npos) {
+		size_t p2 = header.find("\r\n",p);
+		if(p2 != std::string::npos) {
+			printf("version %s.\n",header.substr(p+versionString.size(),p2-p-versionString.size()).c_str());
+		}
+	}*/
+	std::string key = "";
+	size_t p = header.find(keyString);
+	if(p != std::string::npos) {
+		size_t p2 = header.find("\r\n",p);
+		if(p2 != std::string::npos) {
+			key = header.substr(p+keyString.size(),p2-p-keyString.size());
+//			printf("key %s.\n",key.c_str());
+			const std::string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+			std::string c(key+GUID);
+			const int hashlen = 20;
+			unsigned char hash[hashlen];
+			SHA1((const unsigned char*)c.c_str(), c.size(), hash);
+			std::string acceptKey = base64_encode(hash,hashlen);
+//			printf("acceptKey %s\n",acceptKey.c_str());
+
+			std::ostringstream header;
+			header << "HTTP/1.1 101 Switching Protocols\r\n";
+			header << "Upgrade: websocket\r\n";
+			header << "Connection: Upgrade\r\n";
+			header << "Sec-WebSocket-Accept: " << acceptKey << "\r\n";
+			header << "\r\n";
+			m_socket->send(header.str());
+			r = true;
+		}
+	}
+	return r;
+}
+
 void IHCHTTPServerWorker::webSocketEventHandler() {
+	m_eventMutex = new pthread_mutex_t;
+	pthread_mutex_init(m_eventMutex,NULL);
+
+	m_eventCond = new pthread_cond_t;
+	pthread_cond_init(m_eventCond,NULL);
+
+	m_ihcServer->attach(this);
+
+	while(true) {
+		IHCEvent* e = NULL;
+		pthread_cleanup_push((void(*)(void*))pthread_mutex_unlock,(void*)m_eventMutex);
+		pthread_mutex_lock(m_eventMutex);
+		while(m_events.empty()) {
+			pthread_cond_wait(m_eventCond,m_eventMutex);
+		}
+		e = m_events.front();
+		m_events.pop_front();
+		pthread_mutex_unlock(m_eventMutex);
+		pthread_cleanup_pop(0);
+
+		json::Object response;
+		switch(e->m_event) {
+			case IHCServerDefs::ALARM_ARMED:
+				response["type"] = json::String("alarmState");
+				response["state"] = json::Boolean(true);
+			break;
+			case IHCServerDefs::ALARM_DISARMED:
+				response["type"] = json::String("alarmState");
+				response["state"] = json::Boolean(false);
+			break;
+			case IHCServerDefs::INPUT_CHANGED:
+				response["type"] = json::String("inputState");
+				response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+				response["ioNumber"] = json::Number(e->m_io->getIONumber());
+				response["state"] = json::Boolean(e->m_io->getState());
+			break;
+			case IHCServerDefs::OUTPUT_CHANGED:
+				response["type"] = json::String("outputState");
+				response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+				response["ioNumber"] = json::Number(e->m_io->getIONumber());
+				response["state"] = json::Boolean(e->m_io->getState());
+			break;
+		}
+		response["lastEventNumber"] = json::Number(e->getEventNumber());
+
+		delete e;
+
+		std::ostringstream ost;
+		json::Writer::Write(response,ost);
+		unsigned char header[2];
+		header[0] = 129;
+		header[1] = ost.str().size();
+		try {
+			m_socket->send(header,2);
+			m_socket->send(ost.str());
+		} catch (bool ex) {
+			break;
+		}
+	}
+
+	m_ihcServer->detach(this);
+	pthread_cond_destroy(m_eventCond);
+	delete m_eventCond;
+	m_eventCond = NULL;
+
+	pthread_mutex_destroy(m_eventMutex);
+	delete m_eventMutex;
+	m_eventMutex = NULL;
+}
+
+void  IHCHTTPServerWorker::update(Subject* sub, void* obj) {
+	if(sub == m_ihcServer) {
+		pthread_mutex_lock(m_eventMutex);
+		m_events.push_back(new IHCEvent(*((IHCEvent*)obj)));
+		pthread_cond_signal(m_eventCond);
+		pthread_mutex_unlock(m_eventMutex);
+	}
 }

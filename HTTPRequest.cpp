@@ -44,7 +44,7 @@ HTTPRequest::HTTPRequest(const std::string& requestString) :
 		if(pos2 != std::string::npos) {
 			size_t pos3 = httpHeader.find("\r\n",pos2);
 			if(pos3 != std::string::npos) {
-				printf("content length .%s.\n", httpHeader.substr(pos2,pos3-pos2).c_str());
+//				printf("content length .%s.\n", httpHeader.substr(pos2,pos3-pos2).c_str());
 			}
 		}
 		m_payload = requestString.substr(pos1+4);

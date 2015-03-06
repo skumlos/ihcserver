@@ -45,8 +45,6 @@
 
 class IHCInterface;
 class TCPSocketServer;
-class IHCServerWorker;
-class IHCServerEventWorker;
 class IHCHTTPServer;
 class Configuration;
 class Reaper;
@@ -61,7 +59,6 @@ public:
 
 	// The callback that gets connected sockets from the servers
 	void socketConnected(TCPSocket* newSocket);
-	void deleteServerWorker(IHCServerWorker* worker);
 
 	// We get notified by IHCInputs and IHCOutputs here
 	void update(Subject* sub, void* obj);
@@ -101,8 +98,6 @@ private:
 	// Listeners that want to know about changes should register here
 	TCPSocketServer* m_eventServer;
 	const static int m_eventServerPort = 45201;
-	std::list<IHCServerWorker*> m_eventListeners;
-	std::list<IHCServerWorker*> m_requestListeners;
 	std::list<IHCEvent*> m_eventList;
 
 	pthread_cond_t m_eventCond;

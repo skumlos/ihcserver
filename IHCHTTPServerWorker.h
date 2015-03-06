@@ -1,19 +1,24 @@
 #ifndef IHCHTTPSERVERWORKER_H
 #define IHCHTTPSERVERWORKER_H
 #include "utils/Thread.h"
+#include "utils/Observer.h"
 #include "3rdparty/cajun-2.0.2/json/elements.h"
 #include "Userlevel.h"
 #include <map>
+#include <list>
 
 class TCPSocket;
 class IHCEvent;
+class IHCServer;
 
-class IHCHTTPServerWorker : public Thread {
+class IHCHTTPServerWorker : public Thread, public Observer {
 public:
 	IHCHTTPServerWorker(TCPSocket* connectedSocket);
 	virtual ~IHCHTTPServerWorker();
 	void thread();
+	void update(Subject* sub, void* obj);
 private:
+	bool handleWebSocketHandshake(const std::string& header);
 	void webSocketEventHandler();
 	void getAll(json::Object& resp);
 	void getAlarmState(json::Object& response);
@@ -25,6 +30,10 @@ private:
 	static pthread_mutex_t m_tokenMapMutex;
 	static std::map<std::string,Userlevel::UserlevelToken*> m_tokens;
 	TCPSocket* m_socket;
+	IHCServer* m_ihcServer;
+	pthread_mutex_t* m_eventMutex;
+	pthread_cond_t* m_eventCond;
+	std::list<IHCEvent*> m_events;
 };
 
 #endif /* IHCHTTPSERVERWORKER_H */

@@ -26,9 +26,6 @@
 #include "IHCServer.h"
 #include "IHCInterface.h"
 #include "utils/TCPSocketServer.h"
-#include "IHCServerWorker.h"
-#include "IHCServerEventWorker.h"
-#include "IHCServerRequestWorker.h"
 #include "IHCEvent.h"
 #include "Configuration.h"
 #include "Userlevel.h"
@@ -57,7 +54,6 @@ IHCServer::IHCServer() :
 	printf("\nIHCServer v%s\nby Martin Hejnfelt\n\n",version.c_str());
 	pthread_cond_init(&m_eventCond,NULL);
 	pthread_mutex_init(&m_eventMutex,NULL);
-	pthread_mutex_init(&m_workerMutex,NULL);
 
 	// Initialize and load the configuration
 	m_configuration = Configuration::getInstance();
@@ -77,7 +73,6 @@ IHCServer::IHCServer() :
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
 	m_httpServer = IHCHTTPServer::getInstance();
-	attach(m_httpServer);
 
 	// Attach to all IHC I/Os
 	std::list<IHCInput*> inputs = m_ihcinterface->getAllInputs();
@@ -115,7 +110,6 @@ IHCServer::~IHCServer() {
 	delete m_requestServer;
 	m_ihcinterface->stop();
 	delete m_ihcinterface;
-	pthread_mutex_destroy(&m_workerMutex);
 	pthread_mutex_destroy(&m_eventMutex);
 	pthread_cond_destroy(&m_eventCond);
 }
@@ -165,30 +159,7 @@ void IHCServer::thread() {
 		IHCEvent* event = m_eventList.front();
 		m_eventList.pop_front();
 		pthread_mutex_unlock(&m_eventMutex);
-		std::list<IHCServerWorker*>::const_iterator it;
-		pthread_mutex_lock(&m_workerMutex);
-		for(it = m_eventListeners.begin(); it != m_eventListeners.end(); it++) {
-			if(event->m_event == IHCServerDefs::OUTPUT_CHANGED ||
-				event->m_event == IHCServerDefs::INPUT_CHANGED) {
-				if(event->m_io != NULL) {
-			        	int moduleNumber = event->m_io->getModuleNumber();
-			        	int ioNumber = event->m_io->getIONumber();
-			        	bool state = event->m_io->getState();
-					if(dynamic_cast<IHCOutput*>(event->m_io) != 0) {
-						((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::OUTPUT,moduleNumber,ioNumber,state);
-					} else if (dynamic_cast<IHCInput*>(event->m_io) != 0) {
-						((IHCServerEventWorker*)(*it))->notify(IHCServerDefs::INPUT,moduleNumber,ioNumber,state);
-					}
-				}
-			} else {
-				((IHCServerEventWorker*)(*it))->notify(event->m_event);
-			}
-		}
 		notify((void*)event);
-		pthread_mutex_unlock(&m_workerMutex);
-		if(event->m_io != NULL) {
-			delete event->m_io;
-		}
 		delete event;
 	};
 }
@@ -197,7 +168,7 @@ void IHCServer::update(Subject* sub, void* obj) {
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
 		IHCEvent* event = new IHCEvent();
 		event->m_event = IHCServerDefs::OUTPUT_CHANGED;
-		event->m_io = new IHCOutput(*(IHCOutput*)sub);
+		event->m_io = (IHCOutput*)sub;
 		if(m_configuration->getIOAlarm(IHCServerDefs::OUTPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
 			setAlarmState(event->m_io->getState());
 		}
@@ -208,7 +179,7 @@ void IHCServer::update(Subject* sub, void* obj) {
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
 		IHCEvent* event = new IHCEvent();
 		event->m_event = IHCServerDefs::INPUT_CHANGED;
-		event->m_io = new IHCInput(*(IHCInput*)sub);
+		event->m_io = (IHCInput*)sub;
 		if(m_configuration->getIOAlarm(IHCServerDefs::INPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
 			setAlarmState(event->m_io->getState());
 		}
@@ -228,45 +199,6 @@ void IHCServer::socketConnected(TCPSocket* newSocket) {
 		return;
 	}*/
 	newSocket->recv(clientID);
-	pthread_mutex_lock(&m_workerMutex);
-	if(newSocket->getPort() == m_eventServerPort) {
-		std::list<IHCServerWorker*>::iterator it = m_eventListeners.begin();
-		for(; it != m_eventListeners.end(); it++) {
-			if(clientID == (*it)->getClientID()) {
-//				printf("Found running event session (%s)\n",clientID.c_str());
-				(*it)->setSocket(newSocket);
-				break;
-			}
-		}
-		if(it == m_eventListeners.end()) {
-//			printf("No running session found (%s), creating new EventWorker\n",clientID.c_str());
-			IHCServerEventWorker* worker = new IHCServerEventWorker(clientID,newSocket,this);
-			// Event listeners goes onto the list of workers we should notify
-			m_eventListeners.push_back(worker);
-		}
-	} else if(newSocket->getPort() == m_requestServerPort) {
-		std::list<IHCServerWorker*>::iterator it = m_requestListeners.begin();
-		for(; it != m_requestListeners.end(); it++) {
-			if(clientID == (*it)->getClientID()) {
-//				printf("Found running request session (%s)\n",clientID.c_str());
-				(*it)->setSocket(newSocket);
-				break;
-			}
-		}
-		if(it == m_requestListeners.end()) {
-//			printf("No running session found (%s), creating new RequestWorker\n",clientID.c_str());
-			IHCServerWorker* worker = new IHCServerRequestWorker(clientID,newSocket,this);
-			m_requestListeners.push_back(worker);
-		}
-	}
-	pthread_mutex_unlock(&m_workerMutex);
-}
-
-void IHCServer::deleteServerWorker(IHCServerWorker* worker) {
-	pthread_mutex_lock(&m_workerMutex);
-	m_requestListeners.remove(worker);
-	m_eventListeners.remove(worker); // If on the list, remove
-	pthread_mutex_unlock(&m_workerMutex);
 }
 
 void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {

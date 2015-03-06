@@ -12,3 +12,8 @@ IHCEvent::IHCEvent() :
 	pthread_mutex_unlock(&m_counterMutex);
 };
 
+IHCEvent::IHCEvent(const IHCEvent& e) :
+	m_event(e.m_event),
+	m_io(e.m_io)
+{};
+
