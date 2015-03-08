@@ -19,7 +19,9 @@ public:
 	void update(Subject* sub, void* obj);
 private:
 	bool handleWebSocketHandshake(const std::string& header);
+	bool pingWebSocket();
 	void webSocketEventHandler();
+	std::string decodeWebSocketPacket(const unsigned char* packet, unsigned int length);
 	void getAll(json::Object& resp);
 	void getAlarmState(json::Object& response);
 	void keypadAction(json::Object& req, json::Object& response);

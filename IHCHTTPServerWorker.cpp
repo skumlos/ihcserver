@@ -8,6 +8,8 @@
 #include "IHCIO.h"
 #include "IHCHTTPServer.h"
 #include "base64.h"
+#include "utils/ms.h"
+#include <errno.h>
 #include <cstdio>
 #include <sstream>
 #include <fstream>
@@ -37,8 +39,8 @@ void IHCHTTPServerWorker::thread() {
 	try {
 		while(m_socket->poll(1000)) { sleep(1); };
 		std::string buffer = "";
-		std::string buf = "";
 		while(m_socket->peek() > 0) {
+			std::string buf = "";
 			m_socket->recv(buf);
 			buffer += buf;
 			usleep(100*1000);
@@ -450,61 +452,75 @@ void IHCHTTPServerWorker::webSocketEventHandler() {
 	m_eventMutex = new pthread_mutex_t;
 	pthread_mutex_init(m_eventMutex,NULL);
 
+        pthread_condattr_t attr;
+        pthread_condattr_init(&attr);
+        pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
 	m_eventCond = new pthread_cond_t;
-	pthread_cond_init(m_eventCond,NULL);
+	pthread_cond_init(m_eventCond,&attr);
+        pthread_condattr_destroy(&attr);
 
 	m_ihcServer->attach(this);
 
-	while(true) {
-		IHCEvent* e = NULL;
-		pthread_cleanup_push((void(*)(void*))pthread_mutex_unlock,(void*)m_eventMutex);
-		pthread_mutex_lock(m_eventMutex);
-		while(m_events.empty()) {
-			pthread_cond_wait(m_eventCond,m_eventMutex);
-		}
-		e = m_events.front();
-		m_events.pop_front();
-		pthread_mutex_unlock(m_eventMutex);
-		pthread_cleanup_pop(0);
+	try {
+		while(true) {
+			IHCEvent* e = NULL;
+			pthread_cleanup_push((void(*)(void*))pthread_mutex_unlock,(void*)m_eventMutex);
+			pthread_mutex_lock(m_eventMutex);
+			while(m_events.empty()) {
+//				pthread_cond_wait(m_eventCond,m_eventMutex);
+				struct timespec ts = ms::getAbsTime(ms::get()+5000);
+				int rv = pthread_cond_timedwait(m_eventCond,m_eventMutex,&ts);
+ 				if(rv == ETIMEDOUT) {
+					pingWebSocket();
+				}
+			}
+			e = m_events.front();
+			m_events.pop_front();
+			pthread_mutex_unlock(m_eventMutex);
+			pthread_cleanup_pop(0);
 
-		json::Object response;
-		switch(e->m_event) {
-			case IHCServerDefs::ALARM_ARMED:
-				response["type"] = json::String("alarmState");
-				response["state"] = json::Boolean(true);
-			break;
-			case IHCServerDefs::ALARM_DISARMED:
-				response["type"] = json::String("alarmState");
-				response["state"] = json::Boolean(false);
-			break;
-			case IHCServerDefs::INPUT_CHANGED:
-				response["type"] = json::String("inputState");
-				response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
-				response["ioNumber"] = json::Number(e->m_io->getIONumber());
-				response["state"] = json::Boolean(e->m_io->getState());
-			break;
-			case IHCServerDefs::OUTPUT_CHANGED:
-				response["type"] = json::String("outputState");
-				response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
-				response["ioNumber"] = json::Number(e->m_io->getIONumber());
-				response["state"] = json::Boolean(e->m_io->getState());
-			break;
-		}
-		response["lastEventNumber"] = json::Number(e->getEventNumber());
+			json::Object response;
 
-		delete e;
+			switch(e->m_event) {
+				case IHCServerDefs::ALARM_ARMED:
+					response["type"] = json::String("alarmState");
+					response["state"] = json::Boolean(true);
+				break;
+				case IHCServerDefs::ALARM_DISARMED:
+					response["type"] = json::String("alarmState");
+					response["state"] = json::Boolean(false);
+				break;
+				case IHCServerDefs::INPUT_CHANGED:
+					response["type"] = json::String("inputState");
+					response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+					response["ioNumber"] = json::Number(e->m_io->getIONumber());
+					response["state"] = json::Boolean(e->m_io->getState());
+				break;
+				case IHCServerDefs::OUTPUT_CHANGED:
+					response["type"] = json::String("outputState");
+					response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+					response["ioNumber"] = json::Number(e->m_io->getIONumber());
+					response["state"] = json::Boolean(e->m_io->getState());
+				break;
+			}
+			response["lastEventNumber"] = json::Number(e->getEventNumber());
 
-		std::ostringstream ost;
-		json::Writer::Write(response,ost);
-		unsigned char header[2];
-		header[0] = 129;
-		header[1] = ost.str().size();
-		try {
-			m_socket->send(header,2);
-			m_socket->send(ost.str());
-		} catch (bool ex) {
-			break;
+			delete e;
+
+			std::ostringstream ost;
+			json::Writer::Write(response,ost);
+			unsigned char header[2];
+			header[0] = 129;
+			header[1] = ost.str().size();
+			try {
+				m_socket->send(header,2);
+				m_socket->send(ost.str());
+			} catch (bool ex) {
+				throw ex;
+			}
 		}
+	} catch (bool ex) {
+//		printf("Failed sending\n");
 	}
 
 	m_ihcServer->detach(this);
@@ -517,7 +533,7 @@ void IHCHTTPServerWorker::webSocketEventHandler() {
 	m_eventMutex = NULL;
 }
 
-void  IHCHTTPServerWorker::update(Subject* sub, void* obj) {
+void IHCHTTPServerWorker::update(Subject* sub, void* obj) {
 	if(sub == m_ihcServer) {
 		pthread_mutex_lock(m_eventMutex);
 		m_events.push_back(new IHCEvent(*((IHCEvent*)obj)));
@@ -525,3 +541,65 @@ void  IHCHTTPServerWorker::update(Subject* sub, void* obj) {
 		pthread_mutex_unlock(m_eventMutex);
 	}
 }
+
+bool IHCHTTPServerWorker::pingWebSocket() {
+	json::Object response;
+	std::ostringstream ost;
+	response["type"] = json::String("ping");
+	json::Writer::Write(response,ost);
+	unsigned char header[2];
+	header[0] = 129;
+	header[1] = ost.str().size();
+	try {
+		m_socket->send(header,2);
+		m_socket->send(ost.str());
+		unsigned int start_ms = ms::get();
+		while(m_socket->poll(1000)) {
+			if(ms::isPast(start_ms + 3000)) {
+				throw false;
+			}
+		};
+		std::string buffer = "";
+		while(m_socket->peek() > 0) {
+			std::string buf = "";
+			m_socket->recv(buf);
+			buffer += buf;
+			usleep(500*1000);
+		}
+		json::Object request;
+		std::string r = decodeWebSocketPacket((const unsigned char*)(buffer.c_str()),buffer.size());
+		if(r != "") {
+			std::istringstream ist(r);
+			json::Reader::Read(request,ist);
+			if(json::String(request["type"]).Value() != "pong") {
+				throw false;
+			}
+		} else {
+			throw false;
+		}
+	} catch (bool ex) {
+		throw ex;
+	}
+	return true;
+}
+
+std::string IHCHTTPServerWorker::decodeWebSocketPacket(const unsigned char* packet, unsigned int length) {
+	std::string r = "";
+	if(packet[0] == 0x81) {
+		if((packet[1] & 0x80) == 0x80) {
+			unsigned char lengthByte = (packet[1] & 0x7F);
+			unsigned int maskStartOffset = 2;
+			if(length == 0x7E) { // Next two bytes are length
+				maskStartOffset = 4;
+			} else if (length == 0x7F) { // Next eight bytes are length
+				maskStartOffset = 10;
+			}
+			unsigned int dataStartOffset = maskStartOffset + 4;
+			for(unsigned int k = dataStartOffset, j = 0; k < length; ++k,++j) {
+				r += packet[k] ^ packet[maskStartOffset + (j % 4)];
+			}
+		}
+	}
+	return r;
+}
+
