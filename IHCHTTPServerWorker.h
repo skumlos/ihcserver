@@ -18,6 +18,9 @@ public:
 	void thread();
 	void update(Subject* sub, void* obj);
 private:
+	static unsigned int m_all;
+	static pthread_mutex_t m_allMutex;
+
 	bool handleWebSocketHandshake(const std::string& header);
 	bool pingWebSocket();
 	void webSocketEventHandler();

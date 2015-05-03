@@ -18,6 +18,8 @@
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 pthread_mutex_t IHCHTTPServerWorker::m_tokenMapMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t IHCHTTPServerWorker::m_allMutex = PTHREAD_MUTEX_INITIALIZER;
+unsigned int IHCHTTPServerWorker::m_all = 0;
 std::map<std::string,Userlevel::UserlevelToken*> IHCHTTPServerWorker::m_tokens;
 
 IHCHTTPServerWorker::IHCHTTPServerWorker(TCPSocket* connectedSocket) :
@@ -37,7 +39,14 @@ IHCHTTPServerWorker::~IHCHTTPServerWorker() {
 void IHCHTTPServerWorker::thread() {
 	std::string webroot = Configuration::getInstance()->getWebroot();
 	try {
-		while(m_socket->poll(1000)) { sleep(1); };
+		int slept_s = 0;
+		while(m_socket->poll(1000)) {
+			if(slept_s >= 10) {
+				throw false;
+			}
+			sleep(1);
+			++slept_s;
+		};
 		std::string buffer = "";
 		while(m_socket->peek() > 0) {
 			std::string buf = "";
@@ -130,7 +139,7 @@ void IHCHTTPServerWorker::thread() {
 //			break;
 		}
 	} catch (...) {
-		printf("Exception in IHCHTTPServerWorker\n");
+		printf("IHCHTTPServerWorker: Exception in packet\n");
 	}
 }
 
@@ -142,7 +151,7 @@ void IHCHTTPServerWorker::getModuleConfiguration(json::Object& req, json::Object
 	Userlevel::UserlevelToken* &token = m_tokens[id]; 
 	pthread_mutex_unlock(&m_tokenMapMutex);
 	if(Userlevel::getUserlevel(token) != Userlevel::ADMIN) {
-		printf("%s trying to getModuleConfiguration without proper level\n",id.c_str());
+		printf("IHCHTTPServerWorker: %s trying to getModuleConfiguration without proper level\n",id.c_str());
 		throw false;
 	}
 	std::string moduleType = json::String(req["moduleType"]).Value();
@@ -203,7 +212,7 @@ void IHCHTTPServerWorker::setModuleConfiguration(json::Object& req, json::Object
 	Userlevel::UserlevelToken* &token = m_tokens[id];
 	pthread_mutex_unlock(&m_tokenMapMutex);
 	if(Userlevel::getUserlevel(token) != Userlevel::ADMIN) {
-		printf("%s trying to setModuleConfiguration without proper level\n",id.c_str());
+		printf("IHCHTTPServerWorker: %s trying to setModuleConfiguration without proper level\n",id.c_str());
 		throw false;
 	}
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();
@@ -376,7 +385,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		try {
 			Userlevel::loginSHA(token,input);
 		} catch(...) {
-			printf("Exception when logging in\n");
+			printf("IHCHTTPServerWorker: Exception when logging in\n");
 		}
 		response["Userlevel"] = json::String(Userlevel::tokenToString(token));
 	} else if(action == "arm-alarm") {
@@ -384,10 +393,10 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		try {
 			Userlevel::loginSHA(tempToken,input);
 		} catch(...) {
-			printf("Exception when logging in\n");
+			printf("IHCHTTPServerWorker: Exception when logging in\n");
 		}
 		if(Userlevel::getUserlevel(tempToken) == Userlevel::BASIC) {
-			printf("%s trying to arm without proper level\n",id.c_str());
+			printf("IHCHTTPServerWorker: %s trying to arm without proper level\n",id.c_str());
 			throw false;
 		}
 		IHCServer::getInstance()->setAlarmState(true);
@@ -396,10 +405,10 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		try {
 			Userlevel::loginSHA(tempToken,input);
 		} catch(...) {
-			printf("Exception when logging in\n");
+			printf("IHCHTTPServerWorker: Exception when logging in\n");
 		}
 		if(Userlevel::getUserlevel(tempToken) == Userlevel::BASIC) {
-			printf("%s trying to disarm without proper level\n",id.c_str());
+			printf("IHCHTTPServerWorker: %s trying to disarm without proper level\n",id.c_str());
 			throw false;
 		}
 		IHCServer::getInstance()->setAlarmState(false);

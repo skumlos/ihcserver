@@ -30,6 +30,8 @@
 #include <ctime>
 #include "Configuration.h"
 
+static unsigned int packets = 0;
+
 void printTimeStamp(time_t t = 0) {
         time_t now = (t == 0 ? time(NULL) : t);
         struct tm* timeinfo;
@@ -142,7 +144,7 @@ IHCRS485Packet IHCInterface::getPacket(UART& uart, int ID, bool useTimeout) thro
 		out_of_frame_bytes = 0;
 		c = uart.readByte();
 		while(c != IHCDefs::STX) { // Syncing with STX
-//			printf("%.2X\n",c);
+//			printf("%.2X \n",c);
 			out_of_frame_bytes++;
 			c = uart.readByte();
 		}
@@ -159,6 +161,9 @@ IHCRS485Packet IHCInterface::getPacket(UART& uart, int ID, bool useTimeout) thro
 		IHCRS485Packet p(packet);
 		if(p.isComplete() && p.getID() == ID) {
 //			p.print();
+			++packets;
+			printf("IHCInterface received: %d packets\t\t\t\r",packets);
+			fflush(stdout);
 			return p;
 		}
 		packet.clear();
