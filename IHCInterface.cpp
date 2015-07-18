@@ -46,7 +46,8 @@ IHCInterface::IHCInterface(std::string rs485port)
 		m_port = new UART(rs485port,Configuration::getInstance()->useHWFlowControl());
 //		m_port = new UART(rs485port,true);
 		m_port->setSpeed(B19200);
-	} catch (...) {
+	} catch (std::exception& ex) {
+		printf("IHCInterface: Could not init UART (%s)",ex.what());
 		throw false;
 	}
 
@@ -161,9 +162,9 @@ IHCRS485Packet IHCInterface::getPacket(UART& uart, int ID, bool useTimeout) thro
 		IHCRS485Packet p(packet);
 		if(p.isComplete() && p.getID() == ID) {
 //			p.print();
-			++packets;
-			printf("IHCInterface received: %d packets\t\t\t\r",packets);
-			fflush(stdout);
+//			++packets;
+//			printf("IHCInterface received: %d packets\t\t\t\r",packets);
+//			fflush(stdout);
 			return p;
 		}
 		packet.clear();
@@ -224,9 +225,8 @@ void IHCInterface::thread() {
 					sendPackets = true;
 				break;
 			}
-		} catch (UARTException ex) {
-			printf("Caught exception in communication thread\n");
-			printf("%s\n",ex.getReason().c_str());
+		} catch (std::exception& ex) {
+			printf("IHCInterface: Caught exception in communication thread (%s)\n",ex.what());
 			exit(1);
 		}
 	}

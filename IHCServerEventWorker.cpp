@@ -140,6 +140,8 @@ void IHCServerEventWorker::thread() {
 
 				lastSent_ms = ms::get();
 
+				delete[] header;
+
 				pthread_mutex_lock(&m_messageMutex);
  				m_messages.pop_front();
 				pthread_mutex_unlock(&m_messageMutex);

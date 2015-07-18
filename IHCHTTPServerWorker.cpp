@@ -138,8 +138,10 @@ void IHCHTTPServerWorker::thread() {
 		} else if(buffer == "" && m_socket->peek() <= 0) {
 //			break;
 		}
-	} catch (...) {
-		printf("IHCHTTPServerWorker: Exception in packet\n");
+	} catch (std::exception& ex) {
+		printf("IHCHTTPServerWorker: Exception in packet (%s)\n",ex.what());
+	} catch (bool ex) {
+		printf("IHCHTTPServerWorker: Unknown exception in packet\n");
 	}
 }
 
@@ -384,16 +386,20 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 	} else if(action == "login") {
 		try {
 			Userlevel::loginSHA(token,input);
-		} catch(...) {
-			printf("IHCHTTPServerWorker: Exception when logging in\n");
+		} catch(std::exception& ex) {
+			printf("IHCHTTPServerWorker: Exception when logging in (%s)\n",ex.what());
+		} catch(bool ex) {
+			printf("IHCHTTPServerWorker: Unknown exception when logging in\n");
 		}
 		response["Userlevel"] = json::String(Userlevel::tokenToString(token));
 	} else if(action == "arm-alarm") {
 		Userlevel::UserlevelToken *tempToken;
 		try {
 			Userlevel::loginSHA(tempToken,input);
-		} catch(...) {
-			printf("IHCHTTPServerWorker: Exception when logging in\n");
+		} catch(std::exception& ex) {
+			printf("IHCHTTPServerWorker: Exception when logging in (%s)\n",ex.what());
+		} catch(bool ex) {
+			printf("IHCHTTPServerWorker: Unknown exception when logging in\n");
 		}
 		if(Userlevel::getUserlevel(tempToken) == Userlevel::BASIC) {
 			printf("IHCHTTPServerWorker: %s trying to arm without proper level\n",id.c_str());
@@ -404,8 +410,10 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		Userlevel::UserlevelToken *tempToken;
 		try {
 			Userlevel::loginSHA(tempToken,input);
-		} catch(...) {
-			printf("IHCHTTPServerWorker: Exception when logging in\n");
+		} catch(std::exception& ex) {
+			printf("IHCHTTPServerWorker: Exception when logging in (%s)\n",ex.what());
+		} catch(bool ex) {
+			printf("IHCHTTPServerWorker: Unknown exception when logging in\n");
 		}
 		if(Userlevel::getUserlevel(tempToken) == Userlevel::BASIC) {
 			printf("IHCHTTPServerWorker: %s trying to disarm without proper level\n",id.c_str());

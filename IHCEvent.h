@@ -8,6 +8,7 @@ class IHCEvent {
 public:
         IHCEvent();
         IHCEvent(const IHCEvent& e);
+	virtual ~IHCEvent();
 
         enum IHCServerDefs::Event m_event;
         IHCIO* m_io;

@@ -347,6 +347,7 @@ void IHCServerRequestWorker::thread() {
 					header[3] = (unsigned char) (stringlength >> 0);
 					m_socket->send(header,4);
 					m_socket->send(ost.str());
+					delete[] header;
 				}
 			} catch (...) {
 				printf("IHCServerRequestWorker: Exception in json parsing\n");

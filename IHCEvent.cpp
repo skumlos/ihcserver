@@ -17,3 +17,4 @@ IHCEvent::IHCEvent(const IHCEvent& e) :
 	m_io(e.m_io)
 {};
 
+IHCEvent::~IHCEvent() {};

@@ -60,7 +60,7 @@ IHCServer::IHCServer() :
 	try {
 		printf("IHCServer loading configuration.\n");
 		m_configuration->load();
-	} catch (...) {
+	} catch (bool& ex) {
 		printf("Error in configuration, exitting... Edit config file manually.\n");
 		exit(1);
 	}
@@ -165,29 +165,33 @@ void IHCServer::thread() {
 }
 
 void IHCServer::update(Subject* sub, void* obj) {
+	bool changeAlarm = false;
+	bool newAlarmState = false;
+
+	pthread_mutex_lock(&m_eventMutex);
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
 		IHCEvent* event = new IHCEvent();
 		event->m_event = IHCServerDefs::OUTPUT_CHANGED;
 		event->m_io = (IHCOutput*)sub;
 		if(m_configuration->getIOAlarm(IHCServerDefs::OUTPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
-			setAlarmState(event->m_io->getState());
+			changeAlarm = true;
+			newAlarmState = event->m_io->getState();
 		}
-		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(event);
 		pthread_cond_signal(&m_eventCond);
-		pthread_mutex_unlock(&m_eventMutex);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
 		IHCEvent* event = new IHCEvent();
 		event->m_event = IHCServerDefs::INPUT_CHANGED;
 		event->m_io = (IHCInput*)sub;
 		if(m_configuration->getIOAlarm(IHCServerDefs::INPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
-			setAlarmState(event->m_io->getState());
+			changeAlarm = true;
+			newAlarmState = event->m_io->getState();
 		}
-		pthread_mutex_lock(&m_eventMutex);
 		m_eventList.push_back(event);
 		pthread_cond_signal(&m_eventCond);
-		pthread_mutex_unlock(&m_eventMutex);
 	}
+	pthread_mutex_unlock(&m_eventMutex);
+	if(changeAlarm) setAlarmState(newAlarmState);
 }
 
 void IHCServer::socketConnected(TCPSocket* newSocket) {

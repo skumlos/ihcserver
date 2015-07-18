@@ -70,8 +70,8 @@ void Configuration::load() throw (bool) {
 				json::String serialDevice = conf["serialDevice"];
 				m_serialDevice = serialDevice.Value();
 				printf("Using serial device %s\n",m_serialDevice.c_str());
-			} catch (...) {
-				printf("Error parsing serial device from configfile, defaulting to /dev/ttyS0\n");
+			} catch (std::exception& ex) {
+				printf("Error parsing serial device from configfile (%s), defaulting to /dev/ttyS0\n",ex.what());
 				m_serialDevice = "/dev/ttyS0";
 				saveConfiguration = true;
 			}
@@ -79,8 +79,8 @@ void Configuration::load() throw (bool) {
 				json::Boolean flowControl = conf["useHWFlowControl"];
 				m_useHWFlowControl = flowControl.Value();
 				printf("%s serial flow control\n",(m_useHWFlowControl ? "Using" : "Not using"));
-			} catch (...) {
-				printf("Error parsing flow control from configfile, defaulting to false\n");
+			} catch (std::exception& ex) {
+				printf("Error parsing flow control from configfile (%s), defaulting to false\n",ex.what());
 				saveConfiguration = true;
 			}
 			try {
@@ -93,8 +93,8 @@ void Configuration::load() throw (bool) {
 					}
 				}
 				printf("Using webroot \"%s\"\n",m_webroot.c_str());
-			} catch (...) {
-				printf("Error parsing webroot from configfile, defaulting to %s\n",m_webroot.c_str());
+			} catch (std::exception& ex) {
+				printf("Error parsing webroot from configfile (%s), defaulting to %s\n",m_webroot.c_str(),ex.what());
 				saveConfiguration = true;
 			}
 			try {
@@ -106,8 +106,8 @@ void Configuration::load() throw (bool) {
 					std::string value = json::String(variable["value"]).Value();
 					m_variables[key] = value;
 				}
-			} catch (...) {
-				printf("No variables found or problem in key/value deciphering\n");
+			} catch (std::exception& ex) {
+				printf("No variables found or problem in key/value deciphering (%s)\n",ex.what());
 			}
 			try {
 				json::Array::const_iterator it;
@@ -131,8 +131,8 @@ void Configuration::load() throw (bool) {
 							json::Boolean isAlarm = json::Boolean(ioDescription["alarm"]);
 							m_ioAlarm[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isAlarm.Value();
 						}
-					} catch(...) {
-						printf("No I/O definitions found in configuration\n");
+					} catch(std::exception& ex) {
+						printf("No I/O definitions found in configuration (%s)\n",ex.what());
 					}
 				}
 				json::Array outputModulesConfiguration = modulesConfiguration["outputModules"];
@@ -154,17 +154,17 @@ void Configuration::load() throw (bool) {
 							json::Boolean isAlarm = json::Boolean(ioDescription["alarm"]);
 							m_ioAlarm[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isAlarm.Value();
 						}
-					} catch(...) {
-						printf("No I/O definitions found in configuration\n");
+					} catch(std::exception& ex) {
+						printf("No I/O definitions found in configuration (%s)\n",ex.what());
 					}
 				}
-			} catch(...) {
-				printf("Could not find any module configuration, will write default to config file\n");
+			} catch(std::exception& ex) {
+				printf("Could not find any module configuration, will write default to config file (%s)\n",ex.what());
 				pthread_mutex_unlock(&mutex);
 				throw false;
 			}
 			configFile.close();
-		} catch (...) {
+		} catch (bool ex) {
 			printf("Could not read configuration from config file, creating default file\n");
 			if(m_serialDevice == "") {
 				m_serialDevice = "/dev/ttyS0";

@@ -5,7 +5,7 @@ LDLIBS=-lpthread -lrt -lcrypto -lssl
 EXEC=ihcserver
 SRCS=$(shell ls *.cpp)
 OBJS=$(SRCS:%.cpp=%.o)
-CPPFLAGS+=-g
+CPPFLAGS+=-g -Wall -W
 
 all: $(LIBS) $(OBJS)
 	g++ -o $(EXEC) $(OBJS) $(LIBS) $(LDLIBS)
