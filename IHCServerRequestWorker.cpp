@@ -79,8 +79,9 @@ void IHCServerRequestWorker::thread() {
 			printf("IHCServerRequestWorker: Request received\n");
 			printf("%s\n",ist.str().c_str());
 			json::Object response;
+			std::ostringstream ost;
+			std::string req = json::String(request["type"]).Value();
 			try {
-				std::string req = json::String(request["type"]).Value();
 				if(req == "getAll") {
 					getAll(response);
 				} else if(req == "toggleOutput") {
@@ -98,20 +99,28 @@ void IHCServerRequestWorker::thread() {
 				} else if(req == "setModuleConfiguration") {
 					setModuleConfiguration(m_token,request,response);
 				}
-				std::ostringstream ost;
+/*				std::ostringstream ost;
 				json::Writer::Write(response,ost);
 				unsigned char sendHeader[4];
 				size_t len = ost.str().size();
 				sendHeader[0] = (unsigned char) (len >> 24) & 0xFF;
 				sendHeader[1] = (unsigned char) (len >> 16) & 0xFF;
 				sendHeader[2] = (unsigned char) (len >> 8) & 0xFF;
-				sendHeader[3] = (unsigned char) (len >> 0) & 0xFF;
-
-				m_socket->send(sendHeader,4);
-				m_socket->send(ost.str());
+				sendHeader[3] = (unsigned char) (len >> 0) & 0xFF;*/
 			} catch (bool ex) {
-				printf("IHCServerRequestWorker: Exception detected\n");
+				response["type"] = json::String(req);
+				response["result"] = json::Boolean(false);
 			}
+			json::Writer::Write(response,ost);
+			unsigned char sendHeader[4];
+			size_t len = ost.str().size();
+			sendHeader[0] = (unsigned char) (len >> 24) & 0xFF;
+			sendHeader[1] = (unsigned char) (len >> 16) & 0xFF;
+			sendHeader[2] = (unsigned char) (len >> 8) & 0xFF;
+			sendHeader[3] = (unsigned char) (len >> 0) & 0xFF;
+
+			m_socket->send(sendHeader,4);
+			m_socket->send(ost.str());
 		}
 	} catch (std::exception& ex) {
 		printf("IHCServerRequestWorker: Exception detected (%s)\n",ex.what());
