@@ -30,6 +30,8 @@
 #include "Configuration.h"
 #include "Userlevel.h"
 #include "IHCHTTPServer.h"
+#include "IHCServerRequestWorker.h"
+#include "IHCServerEventWorker.h"
 #include <unistd.h>
 #include <cstdlib>
 #include <cstdio>
@@ -194,15 +196,12 @@ void IHCServer::update(Subject* sub, void* obj) {
 	if(changeAlarm) setAlarmState(newAlarmState);
 }
 
-void IHCServer::socketConnected(TCPSocket* newSocket) {
-	std::string clientID = "";
-/*	if(newSocket->poll(2000) == 0) {
-		// No client id available...
-		printf("No Session ID received, bailing out\n");
-		delete newSocket;
-		return;
-	}*/
-	newSocket->recv(clientID);
+void IHCServer::socketConnected(TCPSocket* newSocket, TCPSocketServer* caller) {
+	if(caller == m_eventServer) {
+		new IHCServerEventWorker(newSocket);
+	} else if (caller == m_requestServer) {
+		new IHCServerRequestWorker(newSocket);
+	}
 }
 
 void IHCServer::toggleModuleState(enum IHCServerDefs::Type type, int moduleNumber) {

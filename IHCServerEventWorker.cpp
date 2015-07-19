@@ -35,133 +35,100 @@
 #include "IHCServer.h"
 #include "utils/TCPSocket.h"
 #include "utils/ms.h"
-#include "IHCServerDefs.h"
+#include "IHCEvent.h"
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 
-IHCServerEventWorker::IHCServerEventWorker(std::string clientID, TCPSocket* socket, IHCServer* server) :
-	IHCServerWorker(clientID,socket,server)
+IHCServerEventWorker::IHCServerEventWorker(TCPSocket* socket) :
+	IHCServerWorker(),
+	m_socket(socket),
+	m_ihcServer(IHCServer::getInstance())
 {
-	pthread_mutex_init(&m_messageMutex,NULL);
-	pthread_cond_init(&m_messageCond,NULL);
+	pthread_mutex_init(&m_eventMutex,NULL);
+	pthread_cond_init(&m_eventCond,NULL);
+	printf("IHCSeverEventWorker: Started for %s\n",m_socket->getHostname().c_str());
 	start();
 }
 
 IHCServerEventWorker::~IHCServerEventWorker() {
-	pthread_cond_destroy(&m_messageCond);
-	pthread_mutex_destroy(&m_messageMutex);
-	while(!m_messages.empty()) {
-		json::Object* message = m_messages.front();
-		m_messages.pop_front();
-		delete message;
+	pthread_cond_destroy(&m_eventCond);
+	pthread_mutex_destroy(&m_eventMutex);
+	while(!m_events.empty()) {
+		delete m_events.front();
+		m_events.pop_front();
 	}
-}
-
-
-void IHCServerEventWorker::notify(enum IHCServerDefs::Event event) {
-	pthread_mutex_lock(&m_messageMutex);
-	json::Object* message = new json::Object();
-	if(event == IHCServerDefs::ALARM_ARMED) {
-		(*message)["type"] = json::String("alarmState");
-		(*message)["state"] = json::Boolean(true);
-	} else if(event == IHCServerDefs::ALARM_DISARMED) {
-		(*message)["type"] = json::String("alarmState");
-		(*message)["state"] = json::Boolean(false);
-	} else {
-		delete message;
-		message = NULL;
-		pthread_mutex_unlock(&m_messageMutex);
-		return;
-	}
-	m_messages.push_back(message);
-	pthread_cond_signal(&m_messageCond);
-	pthread_mutex_unlock(&m_messageMutex);
-}
-
-void IHCServerEventWorker::notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state) {
-	// We push the notification in to avoid the caller locking up or whatever during socket i/o
-	pthread_mutex_lock(&m_messageMutex);
-	json::Object* message = new json::Object();
-	if(type == IHCServerDefs::INPUT) {
-		(*message)["type"] = json::String("inputState");
-	} else if(type == IHCServerDefs::OUTPUT) {
-		(*message)["type"] = json::String("outputState");
-	} else {
-		delete message;
-		message = NULL;
-		pthread_mutex_unlock(&m_messageMutex);
-		return;
-	}
-	(*message)["moduleNumber"] = json::Number(moduleNumber);
-	(*message)["ioNumber"] = json::Number(ioNumber);
-	(*message)["state"] = json::Boolean(state);
-	m_messages.push_back(message);
-	pthread_cond_signal(&m_messageCond);
-	pthread_mutex_unlock(&m_messageMutex);
-	return;
+	printf("IHCSeverEventWorker: dtor for %s\n",m_socket->getHostname().c_str());
 }
 
 void IHCServerEventWorker::thread() {
 	// We dont want sigpipe, instead we ignore and TCPSocket will fire an
 	// exception and make sure we get deleted
 	signal(SIGPIPE,SIG_IGN);
-	unsigned int minDelta_ms = 300;
-	try {
-		json::Object* message = NULL;
-		unsigned int lastSent_ms = 0;
-		while(1) {
+
+	m_ihcServer->attach(this);
+        try {
+                while(true) {
+			IHCEvent* e = NULL;
+			pthread_cleanup_push((void(*)(void*))pthread_mutex_unlock,(void*)&m_eventMutex);
+			pthread_mutex_lock(&m_eventMutex);
+                        while(m_events.empty()) {
+                              pthread_cond_wait(&m_eventCond,&m_eventMutex);
+                        }
+                        e = m_events.front();
+                        m_events.pop_front();
+                        pthread_mutex_unlock(&m_eventMutex);
+                        pthread_cleanup_pop(0);
+
+                        json::Object response;
+
+                        switch(e->m_event) {
+                                case IHCServerDefs::ALARM_ARMED:
+                                        response["type"] = json::String("alarmState");
+                                        response["state"] = json::Boolean(true);
+                                break;
+                                case IHCServerDefs::ALARM_DISARMED:
+                                        response["type"] = json::String("alarmState");
+                                        response["state"] = json::Boolean(false);
+                                break;
+                                case IHCServerDefs::INPUT_CHANGED:
+                                        response["type"] = json::String("inputState");
+                                        response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+                                        response["ioNumber"] = json::Number(e->m_io->getIONumber());
+                                        response["state"] = json::Boolean(e->m_io->getState());
+                                break;
+                                case IHCServerDefs::OUTPUT_CHANGED:
+                                        response["type"] = json::String("outputState");
+                                        response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+                                        response["ioNumber"] = json::Number(e->m_io->getIONumber());
+                                        response["state"] = json::Boolean(e->m_io->getState());
+                                break;
+                        }
+
+			delete e;
+
 			std::ostringstream ost;
-			try {
-				pthread_mutex_lock(&m_messageMutex);
-				while(m_messages.empty()) {
-					pthread_cond_wait(&m_messageCond,&m_messageMutex);
-				}
-				// We have message(s)
-				message = m_messages.front();
-				json::Writer::Write(*message,ost);
-				pthread_mutex_unlock(&m_messageMutex);
-			} catch (...) {
-				// Shit hit the fan, abort!
-				pthread_mutex_unlock(&m_messageMutex);
-				throw false;
-			}
-			try {
-				int stringlength = ost.str().size();
-				unsigned char* header = new unsigned char[4];
-				header[0] = (unsigned char) (stringlength >> 0);
-				header[1] = (unsigned char) (stringlength >> 8);
-				header[2] = (unsigned char) (stringlength >> 16);
-				header[3] = (unsigned char) (stringlength >> 24);
+			json::Writer::Write(response,ost);
+			unsigned char sendHeader[4];
+			size_t len = ost.str().size();
+			sendHeader[0] = (unsigned char) (len >> 24) & 0xFF;
+			sendHeader[1] = (unsigned char) (len >> 16) & 0xFF;
+			sendHeader[2] = (unsigned char) (len >> 8) & 0xFF;
+			sendHeader[3] = (unsigned char) (len >> 0) & 0xFF;
 
-				pthread_mutex_lock(&m_socketMutex);
-				m_socket->send(header,4);
-				m_socket->send(ost.str());
-				pthread_mutex_unlock(&m_socketMutex);
-
-				lastSent_ms = ms::get();
-
-				delete[] header;
-
-				pthread_mutex_lock(&m_messageMutex);
- 				m_messages.pop_front();
-				pthread_mutex_unlock(&m_messageMutex);
-
-				delete message;
-				message = NULL;
-			} catch (...) {
-				struct timespec t;
-				clock_gettime(CLOCK_REALTIME,&t);
-				t.tv_sec += 10;
-				int ret = pthread_cond_timedwait(&m_socketCond,&m_socketMutex,&t);
-				pthread_mutex_unlock(&m_socketMutex);
-				if(ret == ETIMEDOUT) {
-					throw false;
-				}
-			}
-			while(!ms::isPast(lastSent_ms+minDelta_ms)) usleep(10*1000);
-		}
+			m_socket->send(sendHeader,4);
+			m_socket->send(ost.str());
+	}
 	} catch (...) {
 		// Exception in socket, probably closed, bail out
 	}
+	m_ihcServer->detach(this);
 }
 
+void IHCServerEventWorker::update(Subject* sub, void* obj) {
+        if(sub == m_ihcServer) {
+                pthread_mutex_lock(&m_eventMutex);
+                m_events.push_back(new IHCEvent(*((IHCEvent*)obj)));
+                pthread_cond_signal(&m_eventCond);
+                pthread_mutex_unlock(&m_eventMutex);
+        }
+}

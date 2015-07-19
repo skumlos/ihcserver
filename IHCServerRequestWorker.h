@@ -36,15 +36,16 @@
 #define IHCSERVERREQUESTWORKER_H
 #include "IHCServerWorker.h"
 #include "Userlevel.h"
-#include "3rdparty/cajun-2.0.2/json/elements.h"
+
+class TCPSocket;
 
 class IHCServerRequestWorker : public IHCServerWorker {
 public:
-	IHCServerRequestWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
+	IHCServerRequestWorker(TCPSocket* socket);
 	virtual ~IHCServerRequestWorker();
 	virtual void thread();
 private:
-	void getAll(json::Object& resp);
+	TCPSocket* m_socket;
 	Userlevel::UserlevelToken* m_token;
 };
 

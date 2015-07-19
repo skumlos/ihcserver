@@ -23,7 +23,6 @@ unsigned int IHCHTTPServerWorker::m_all = 0;
 std::map<std::string,Userlevel::UserlevelToken*> IHCHTTPServerWorker::m_tokens;
 
 IHCHTTPServerWorker::IHCHTTPServerWorker(TCPSocket* connectedSocket) :
-	Thread(true),
 	m_socket(connectedSocket),
 	m_ihcServer(IHCServer::getInstance()),
 	m_eventMutex(NULL),
@@ -34,6 +33,10 @@ IHCHTTPServerWorker::IHCHTTPServerWorker(TCPSocket* connectedSocket) :
 
 IHCHTTPServerWorker::~IHCHTTPServerWorker() {
 	delete m_socket;
+	while(!m_events.empty()) {
+		delete m_events.back();
+		m_events.pop_back();
+	}
 }
 
 void IHCHTTPServerWorker::thread() {
@@ -64,24 +67,30 @@ void IHCHTTPServerWorker::thread() {
 				std::istringstream ist(req.getPayload());
 				json::Reader::Read(request,ist);
 				json::Object response;
+
+				std::string id = json::String(request["id"]).Value();
+				pthread_mutex_lock(&m_tokenMapMutex);
+				Userlevel::UserlevelToken* &token = m_tokens[id];
+				pthread_mutex_unlock(&m_tokenMapMutex);
+
 				try {
 					std::string req = json::String(request["type"]).Value();
 					if(req == "getAll") {
 						getAll(response);
 					} else if(req == "toggleOutput") {
-						toggleOutput(request,response);
+						toggleOutput(token,request,response);
 					} else if(req == "activateInput") {
-						activateInput(request,true,response);
+						activateInput(token,request,true,response);
 					} else if(req == "deactivateInput") {
-						activateInput(request,false,response);
+						activateInput(token,request,false,response);
 					} else if(req == "getAlarmState") {
 						getAlarmState(response);
 					} else if(req == "keypadAction") {
-						keypadAction(request,response);
+						keypadAction(token,request,response);
 					} else if(req == "getModuleConfiguration") {
-						getModuleConfiguration(request,response);
+						getModuleConfiguration(token,request,response);
 					} else if(req == "setModuleConfiguration") {
-						setModuleConfiguration(request,response);
+						setModuleConfiguration(token,request,response);
 					}
 					std::ostringstream ost;
 					json::Writer::Write(response,ost);
@@ -144,13 +153,13 @@ void IHCHTTPServerWorker::thread() {
 		printf("IHCHTTPServerWorker: Unknown exception in packet\n");
 	}
 }
-
+/*
 void IHCHTTPServerWorker::getModuleConfiguration(json::Object& req, json::Object& resp)
 {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	std::string id = json::String(req["id"]).Value();
 	pthread_mutex_lock(&m_tokenMapMutex);
-	Userlevel::UserlevelToken* &token = m_tokens[id]; 
+	Userlevel::UserlevelToken* &token = m_tokens[id];
 	pthread_mutex_unlock(&m_tokenMapMutex);
 	if(Userlevel::getUserlevel(token) != Userlevel::ADMIN) {
 		printf("IHCHTTPServerWorker: %s trying to getModuleConfiguration without proper level\n",id.c_str());
@@ -292,11 +301,11 @@ void IHCHTTPServerWorker::activateInput(json::Object& req, bool shouldActivate, 
 	pthread_mutex_lock(&m_tokenMapMutex);
 	Userlevel::UserlevelToken* &token = m_tokens[id];
 	pthread_mutex_unlock(&m_tokenMapMutex);
-/*	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
-	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
-	{
-		throw false;
-	}*/
+//	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
+//	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
+//	{
+//		throw false;
+//	}
 	ihcserver->activateInput(moduleNumber,outputNumber,shouldActivate);
 	return;
 }
@@ -364,7 +373,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 	std::string id = json::String(req["id"]).Value();
 	std::string input = json::String(req["input"]).Value();
 	pthread_mutex_lock(&m_tokenMapMutex);
-	Userlevel::UserlevelToken* &token = m_tokens[id]; 
+	Userlevel::UserlevelToken* &token = m_tokens[id];
 	pthread_mutex_unlock(&m_tokenMapMutex);
 	if(action == "setAdminCode") {
 		if(input != "") {
@@ -376,7 +385,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 		}
 	} else if(action == "setSuperUserCode") {
 		if(input != "") {
-			if(Userlevel::getUserlevel(token) == Userlevel::SUPERUSER || 
+			if(Userlevel::getUserlevel(token) == Userlevel::SUPERUSER ||
 				Userlevel::getUserlevel(token) == Userlevel::ADMIN) {
 				Userlevel::setCodeSHA(Userlevel::SUPERUSER,input);
 			} else {
@@ -423,6 +432,7 @@ void IHCHTTPServerWorker::keypadAction(json::Object& req, json::Object& response
 	}
 	response["result"] = json::Boolean(true);
 }
+*/
 
 bool IHCHTTPServerWorker::handleWebSocketHandshake(const std::string& header) {
 	bool r = false;
@@ -430,13 +440,13 @@ bool IHCHTTPServerWorker::handleWebSocketHandshake(const std::string& header) {
 	const std::string versionString = "Sec-WebSocket-Version: ";
 	const std::string keyString = "Sec-WebSocket-Key: ";
 
-/*	size_t p = header.find(versionString);
-	if(p != std::string::npos) {
-		size_t p2 = header.find("\r\n",p);
-		if(p2 != std::string::npos) {
-			printf("version %s.\n",header.substr(p+versionString.size(),p2-p-versionString.size()).c_str());
-		}
-	}*/
+//	size_t p = header.find(versionString);
+//	if(p != std::string::npos) {
+//		size_t p2 = header.find("\r\n",p);
+//		if(p2 != std::string::npos) {
+//			printf("version %s.\n",header.substr(p+versionString.size(),p2-p-versionString.size()).c_str());
+//		}
+//	}
 	std::string key = "";
 	size_t p = header.find(keyString);
 	if(p != std::string::npos) {
@@ -550,15 +560,6 @@ void IHCHTTPServerWorker::webSocketEventHandler() {
 	m_eventMutex = NULL;
 }
 
-void IHCHTTPServerWorker::update(Subject* sub, void* obj) {
-	if(sub == m_ihcServer) {
-		pthread_mutex_lock(m_eventMutex);
-		m_events.push_back(new IHCEvent(*((IHCEvent*)obj)));
-		pthread_cond_signal(m_eventCond);
-		pthread_mutex_unlock(m_eventMutex);
-	}
-}
-
 bool IHCHTTPServerWorker::pingWebSocket() {
 	json::Object response;
 	std::ostringstream ost;
@@ -618,5 +619,14 @@ std::string IHCHTTPServerWorker::decodeWebSocketPacket(const unsigned char* pack
 		}
 	}
 	return r;
+}
+
+void IHCHTTPServerWorker::update(Subject* sub, void* obj) {
+	if(sub == m_ihcServer) {
+		pthread_mutex_lock(m_eventMutex);
+		m_events.push_back(new IHCEvent(*((IHCEvent*)obj)));
+		pthread_cond_signal(m_eventCond);
+		pthread_mutex_unlock(m_eventMutex);
+	}
 }
 

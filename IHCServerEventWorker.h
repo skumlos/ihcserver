@@ -34,7 +34,7 @@
 #ifndef IHCSERVEREVENTWORKER_H
 #define IHCSERVEREVENTWORKER_H
 #include "IHCServerWorker.h"
-#include "utils/Subject.h"
+#include "utils/Observer.h"
 #include "utils/Thread.h"
 #include "IHCServerDefs.h"
 #include "3rdparty/cajun-2.0.2/json/elements.h"
@@ -42,18 +42,20 @@
 
 class TCPSocket;
 class IHCServer;
+class IHCEvent;
 
-class IHCServerEventWorker : public IHCServerWorker {
+class IHCServerEventWorker : public IHCServerWorker, public Observer {
 public:
-	IHCServerEventWorker(std::string clientID, TCPSocket* socket, IHCServer* server);
+	IHCServerEventWorker(TCPSocket* socket);
 	virtual ~IHCServerEventWorker();
 	void thread();
-	void notify(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, int state);
-	void notify(enum IHCServerDefs::Event event);
+	void update(Subject* sub, void* obj);
 private:
-	std::list<json::Object*> m_messages;
-	pthread_mutex_t m_messageMutex;
-	pthread_cond_t m_messageCond;
+	TCPSocket* m_socket;
+	IHCServer* m_ihcServer;
+	std::list<IHCEvent*> m_events;
+	pthread_mutex_t m_eventMutex;
+	pthread_cond_t m_eventCond;
 };
 
 #endif /* IHCSERVEREVENTWORKER_H */

@@ -58,7 +58,7 @@ public:
 	void thread();
 
 	// The callback that gets connected sockets from the servers
-	void socketConnected(TCPSocket* newSocket);
+	void socketConnected(TCPSocket* newSocket, TCPSocketServer* caller);
 
 	// We get notified by IHCInputs and IHCOutputs here
 	void update(Subject* sub, void* obj);
