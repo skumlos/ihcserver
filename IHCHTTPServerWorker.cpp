@@ -546,8 +546,10 @@ void IHCHTTPServerWorker::webSocketEventHandler() {
 				throw ex;
 			}
 		}
+	} catch (std::exception& ex) {
+		printf("IHCHTTPServerWorker: WebSocketEventHandler caught exception (%s)\n",ex.what());
 	} catch (bool ex) {
-//		printf("Failed sending\n");
+		printf("IHCHTTPServerWorker: WebSocketEventHandler caught exception\n");
 	}
 
 	m_ihcServer->detach(this);
