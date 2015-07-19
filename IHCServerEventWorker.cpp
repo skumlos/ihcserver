@@ -117,9 +117,12 @@ void IHCServerEventWorker::thread() {
 
 			m_socket->send(sendHeader,4);
 			m_socket->send(ost.str());
-	}
-	} catch (...) {
+		}
+	} catch (std::exception& ex) {
+		printf("IHCSeverEventWorker: Caught exception for %s (%s)\n",m_socket->getHostname().c_str(),ex.what());
 		// Exception in socket, probably closed, bail out
+	} catch (bool ex) {
+		printf("IHCSeverEventWorker: Caught exception for %s\n",m_socket->getHostname().c_str());
 	}
 	m_ihcServer->detach(this);
 }
