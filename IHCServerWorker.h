@@ -52,15 +52,15 @@ protected:
 
 	void getAlarmState(json::Object& response);
 
-	void keypadAction(Userlevel::UserlevelToken* token, json::Object& req, json::Object& response);
+	void keypadAction(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response);
 
-	void toggleOutput(Userlevel::UserlevelToken* token, json::Object& req, json::Object& response);
+	void toggleOutput(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response);
 
-	void activateInput(Userlevel::UserlevelToken* token, json::Object& req, bool shouldActivate, json::Object& response);
+	void activateInput(Userlevel::UserlevelToken* &token, json::Object& req, bool shouldActivate, json::Object& response);
 
-	void getModuleConfiguration(Userlevel::UserlevelToken* token, json::Object& req, json::Object& resp);
+	void getModuleConfiguration(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& resp);
 
-	void setModuleConfiguration(Userlevel::UserlevelToken* token, json::Object& req, json::Object& resp);
+	void setModuleConfiguration(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& resp);
 
         std::string m_clientID;
 	IHCServer* m_server;

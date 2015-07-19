@@ -23,7 +23,7 @@ IHCServerWorker::IHCServerWorker() : Thread(true) {}
 
 IHCServerWorker::~IHCServerWorker() {}
 
-void IHCServerWorker::getModuleConfiguration(Userlevel::UserlevelToken* token, json::Object& req, json::Object& resp)
+void IHCServerWorker::getModuleConfiguration(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& resp)
 {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	if(Userlevel::getUserlevel(token) != Userlevel::ADMIN) {
@@ -80,7 +80,7 @@ void IHCServerWorker::getModuleConfiguration(Userlevel::UserlevelToken* token, j
 	return;
 }
 
-void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* token, json::Object& req, json::Object& resp)
+void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& resp)
 {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	if(Userlevel::getUserlevel(token) != Userlevel::ADMIN) {
@@ -132,7 +132,7 @@ void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* token, j
 	return;
 }
 
-void IHCServerWorker::toggleOutput(Userlevel::UserlevelToken* token, json::Object& req, json::Object& response) {
+void IHCServerWorker::toggleOutput(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response) {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();
 	int outputNumber = json::Number(req["ioNumber"]).Value();
@@ -150,7 +150,7 @@ void IHCServerWorker::toggleOutput(Userlevel::UserlevelToken* token, json::Objec
 	return;
 }
 
-void IHCServerWorker::activateInput(Userlevel::UserlevelToken* token, json::Object& req, bool shouldActivate, json::Object& response) {
+void IHCServerWorker::activateInput(Userlevel::UserlevelToken* &token, json::Object& req, bool shouldActivate, json::Object& response) {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();
 	int outputNumber = json::Number(req["ioNumber"]).Value();
@@ -220,7 +220,7 @@ void IHCServerWorker::getAll(json::Object& resp) {
 	return;
 }
 
-void IHCServerWorker::keypadAction(Userlevel::UserlevelToken* token, json::Object& req, json::Object& response)
+void IHCServerWorker::keypadAction(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response)
 {
 	std::string action = json::String(req["action"]).Value();
 	std::string input = json::String(req["input"]).Value();
