@@ -1,5 +1,5 @@
 TOP=.
-IHCLIBS=utils
+IHCLIBS=utils 3rdparty/base64
 LIBS=$(foreach i, $(IHCLIBS), $(TOP)/$(i)/lib$(notdir $(i)).a)
 LDLIBS=-lpthread -lrt -lcrypto -lssl
 EXEC=ihcserver

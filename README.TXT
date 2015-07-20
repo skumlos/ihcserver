@@ -1,4 +1,4 @@
-IHCServer v0.2b
+IHCServer v0.3
 
 1. Introduction
 
@@ -20,11 +20,13 @@ IHCServer will issue these, and then continue updating.
 The software consists of 2 main parts, a IHC interface which does the actual
 talking to the controller, and the server that can be communicated with via
 sockets and JSON encoded packets. For the JSON packet stuff, the cajun JSON
-C++ library is used. The library is isolated under the 3rdparty directory.
+C++ library is used. The library is isolated under the 3rdparty directory, 
+along with other code (like base64 stuf) not written by me.
+It now also has a integrated webserver to deal with the webinterface.
 
 The software is written for Linux, and requires pthreads and openssl for 
-running. It has been tested on Ubuntu 12.10 on a Avalue FPC-08W04 that has 
-onboard RS-485.
+running. It has been tested on Raspbian with a Raspberry Pi using the
+Linksprite RS485 shield.
 
 3. IHC Protocol (AFAIK)
 
@@ -52,6 +54,14 @@ http://www.tooms.dk (Web forum)
 
 5. Changelog
 
+Since 0.2b:
+
+Removed external webserver requirement and moved webinterface into package
+
+Uses websocket for events
+
+Many bugfixes and lots of small changes
+
 Since 0.2:
 
 Fixed module toggling
@@ -70,5 +80,8 @@ Added ID stuff to isolate users connected.
 
 Other small fixes and improvements.
 
+6. TODO
 
-2013, Martin Hejnfelt (martin@hejnfelt.com)
+Change to ssl sockets as the current SHA stuff is a bit retarded...
+
+2015, Martin Hejnfelt (martin@hejnfelt.com)

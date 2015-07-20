@@ -7,7 +7,7 @@
 #include "IHCEvent.h"
 #include "IHCIO.h"
 #include "IHCHTTPServer.h"
-#include "base64.h"
+#include "3rdparty/base64/base64.h"
 #include "utils/ms.h"
 #include <errno.h>
 #include <cstdio>
