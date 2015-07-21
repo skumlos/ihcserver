@@ -57,7 +57,6 @@ IHCServerEventWorker::~IHCServerEventWorker() {
 		delete m_events.front();
 		m_events.pop_front();
 	}
-	printf("IHCSeverEventWorker: dtor for %s\n",m_socket->getHostname().c_str());
 }
 
 void IHCServerEventWorker::thread() {

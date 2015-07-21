@@ -49,7 +49,6 @@ IHCServerRequestWorker::IHCServerRequestWorker(TCPSocket* socket) :
 }
 
 IHCServerRequestWorker::~IHCServerRequestWorker() {
-	printf("IHCServerRequestWorker: dtor for %s\n",m_socket->getHostname().c_str());
 	delete m_socket;
 }
 
@@ -76,8 +75,8 @@ void IHCServerRequestWorker::thread() {
 			std::istringstream ist(buffer);
 			json::Object request;
 			json::Reader::Read(request,ist);
-			printf("IHCServerRequestWorker: Request received\n");
-			printf("%s\n",ist.str().c_str());
+//			printf("IHCServerRequestWorker: Request received\n");
+//			printf("%s\n",ist.str().c_str());
 			json::Object response;
 			std::ostringstream ost;
 			std::string req = json::String(request["type"]).Value();
