@@ -98,15 +98,9 @@ void IHCServerRequestWorker::thread() {
 					getModuleConfiguration(m_token,request,response);
 				} else if(req == "setModuleConfiguration") {
 					setModuleConfiguration(m_token,request,response);
+				} else if(req == "getUserlevel") {
+					getUserlevel(m_token,request,response);
 				}
-/*				std::ostringstream ost;
-				json::Writer::Write(response,ost);
-				unsigned char sendHeader[4];
-				size_t len = ost.str().size();
-				sendHeader[0] = (unsigned char) (len >> 24) & 0xFF;
-				sendHeader[1] = (unsigned char) (len >> 16) & 0xFF;
-				sendHeader[2] = (unsigned char) (len >> 8) & 0xFF;
-				sendHeader[3] = (unsigned char) (len >> 0) & 0xFF;*/
 			} catch (bool ex) {
 				response["type"] = json::String(req);
 				response["result"] = json::Boolean(false);

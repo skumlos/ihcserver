@@ -1,7 +1,5 @@
 #include "IHCServerWorker.h"
 #include "IHCServer.h"
-
-//------
 #include "Configuration.h"
 #include "IHCServerDefs.h"
 #include "IHCEvent.h"
@@ -17,7 +15,6 @@
 #include "3rdparty/cajun-2.0.2/json/elements.h"
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
-//------
 
 IHCServerWorker::IHCServerWorker() : Thread(true) {}
 
@@ -280,4 +277,9 @@ void IHCServerWorker::keypadAction(Userlevel::UserlevelToken* &token, json::Obje
 		IHCServer::getInstance()->setAlarmState(false);
 	}
 	response["result"] = json::Boolean(true);
+}
+
+void IHCServerWorker::getUserlevel(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response) {
+	response["type"] = json::String("getUserlevel");
+	response["Userlevel"] = json::String(Userlevel::tokenToString(token));
 }

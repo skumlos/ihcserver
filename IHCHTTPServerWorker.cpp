@@ -91,6 +91,8 @@ void IHCHTTPServerWorker::thread() {
 						getModuleConfiguration(token,request,response);
 					} else if(req == "setModuleConfiguration") {
 						setModuleConfiguration(token,request,response);
+					} else if(req == "getUserlevel") {
+						getUserlevel(token,request,response);
 					}
 					std::ostringstream ost;
 					json::Writer::Write(response,ost);

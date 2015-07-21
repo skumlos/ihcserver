@@ -163,6 +163,9 @@ std::string Userlevel::tokenToString(Userlevel::UserlevelToken*& token)
 				case SUPERUSER:
 					levelString = "SUPERUSER";
 				break;
+				case BASIC:
+				default:
+					levelString = "BASIC";
 			}
 			break;
 		}
