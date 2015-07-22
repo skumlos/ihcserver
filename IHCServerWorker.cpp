@@ -226,8 +226,11 @@ void IHCServerWorker::keypadAction(Userlevel::UserlevelToken* &token, json::Obje
 			if(Userlevel::getUserlevel(token) == Userlevel::ADMIN) {
 				Userlevel::setCodeSHA(Userlevel::ADMIN,input);
 			} else {
+				printf("IHCServerWorker: User trying to set admin code without proper credentials\n");
 				throw false;
 			}
+		} else {
+			throw false;
 		}
 	} else if(action == "setSuperUserCode") {
 		if(input != "") {
@@ -235,8 +238,11 @@ void IHCServerWorker::keypadAction(Userlevel::UserlevelToken* &token, json::Obje
 				Userlevel::getUserlevel(token) == Userlevel::ADMIN) {
 				Userlevel::setCodeSHA(Userlevel::SUPERUSER,input);
 			} else {
+				printf("IHCServerWorker: User trying to set super user code without proper credentials\n");
 				throw false;
 			}
+		} else {
+			throw false;
 		}
 	} else if(action == "login") {
 		try {

@@ -99,6 +99,8 @@ void IHCServerRequestWorker::thread() {
 					setModuleConfiguration(m_token,request,response);
 				} else if(req == "getUserlevel") {
 					getUserlevel(m_token,request,response);
+				} else {
+					throw false;
 				}
 			} catch (bool ex) {
 				response["type"] = json::String(req);
