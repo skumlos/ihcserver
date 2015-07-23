@@ -74,6 +74,17 @@ void IHCServerWorker::getModuleConfiguration(Userlevel::UserlevelToken* &token, 
 		}
 	}
 	resp["ioAlarmStates"] = ioAlarmStates;
+
+	json::Array ioEntryStates;
+	for(int j = 1; j <= ios; j++) {
+		json::Object ioEntry;
+		if(ihcserver->getIOEntry(type,moduleNumber,j)) {
+			ioEntry["ioNumber"] = json::Number(j);
+			ioEntry["ioEntry"] = json::Boolean(true);
+			ioEntryStates.Insert(ioEntry);
+		}
+	}
+	resp["ioEntryStates"] = ioEntryStates;
 	return;
 }
 
@@ -106,6 +117,7 @@ void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* &token, 
 			ihcserver->setIODescription(type,moduleNumber,ioNumber,ioDescription);
 		}
 	}
+
 	json::Array ioProtectedStates = json::Array(req["ioProtectedStates"]);
 	for(it = ioProtectedStates.Begin(); it != ioProtectedStates.End(); it++) {
 		json::Object ioProtectedObj = json::Object(*it);
@@ -113,6 +125,7 @@ void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* &token, 
 		bool ioProtected = json::Boolean(ioProtectedObj["ioProtected"]).Value();
 		ihcserver->setIOProtected(type,moduleNumber,ioNumber,ioProtected);
 	}
+
 	json::Array ioAlarmStates = json::Array(req["ioAlarmStates"]);
 	for(it = ioAlarmStates.Begin(); it != ioAlarmStates.End(); it++) {
 		json::Object ioAlarmObj = json::Object(*it);
@@ -120,6 +133,15 @@ void IHCServerWorker::setModuleConfiguration(Userlevel::UserlevelToken* &token, 
 		bool ioAlarm = json::Boolean(ioAlarmObj["ioAlarm"]).Value();
 		ihcserver->setIOAlarm(type,moduleNumber,ioNumber,ioAlarm);
 	}
+
+	json::Array ioEntryStates = json::Array(req["ioEntryStates"]);
+	for(it = ioEntryStates.Begin(); it != ioEntryStates.End(); it++) {
+		json::Object ioEntryObj = json::Object(*it);
+		int ioNumber = json::Number(ioEntryObj["ioNumber"]).Value();
+		bool ioEntry = json::Boolean(ioEntryObj["ioEntry"]).Value();
+		ihcserver->setIOEntry(type,moduleNumber,ioNumber,ioEntry);
+	}
+
 	bool moduleState = json::Boolean(req["state"]).Value();
 	if(moduleState != ihcserver->getModuleState(type,moduleNumber)) {
 		ihcserver->toggleModuleState(type,moduleNumber);
@@ -133,8 +155,9 @@ void IHCServerWorker::toggleOutput(Userlevel::UserlevelToken* &token, json::Obje
 	IHCServer* ihcserver = IHCServer::getInstance();
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();
 	int outputNumber = json::Number(req["ioNumber"]).Value();
-	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
-	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
+	if((ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) ||
+		ihcserver->getIOAlarm(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber)) &&
+		(Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
 	{
 		throw false;
 	}
@@ -151,11 +174,11 @@ void IHCServerWorker::activateInput(Userlevel::UserlevelToken* &token, json::Obj
 	IHCServer* ihcserver = IHCServer::getInstance();
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();
 	int outputNumber = json::Number(req["ioNumber"]).Value();
-/*	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
-	   (Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
+	if(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) &&
+		(Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
 	{
 		throw false;
-	}*/
+	}
 	ihcserver->activateInput(moduleNumber,outputNumber,shouldActivate);
 	return;
 }
@@ -185,6 +208,7 @@ void IHCServerWorker::getAll(json::Object& resp) {
 				inputState["inputState"] = json::Boolean(ihcserver->getInputState(j,k));
 				inputState["description"] = json::String(ihcserver->getIODescription(IHCServerDefs::INPUTMODULE,j,k));
 				inputState["protected"] = json::Boolean(ihcserver->getIOProtected(IHCServerDefs::INPUTMODULE,j,k));
+				inputState["alarm"] = json::Boolean(ihcserver->getIOAlarm(IHCServerDefs::INPUTMODULE,j,k));
 				inputStates.Insert(inputState);
 			}
 			module["inputStates"] = inputStates;
@@ -206,6 +230,7 @@ void IHCServerWorker::getAll(json::Object& resp) {
 				outputState["outputState"] = json::Boolean(ihcserver->getOutputState(j,k));
 				outputState["description"] = json::String(ihcserver->getIODescription(IHCServerDefs::OUTPUTMODULE,j,k));
 				outputState["protected"] = json::Boolean(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,j,k));
+				outputState["alarm"] = json::Boolean(ihcserver->getIOAlarm(IHCServerDefs::OUTPUTMODULE,j,k));
 				outputStates.Insert(outputState);
 			}
 			module["outputStates"] = outputStates;

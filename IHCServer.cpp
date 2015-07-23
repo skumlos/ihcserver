@@ -169,6 +169,7 @@ void IHCServer::thread() {
 void IHCServer::update(Subject* sub, void* obj) {
 	bool changeAlarm = false;
 	bool newAlarmState = false;
+	bool isEntry = false;
 
 	pthread_mutex_lock(&m_eventMutex);
 	if(dynamic_cast<IHCOutput*>(sub) != 0) {
@@ -180,6 +181,12 @@ void IHCServer::update(Subject* sub, void* obj) {
 			newAlarmState = event->m_io->getState();
 		}
 		m_eventList.push_back(event);
+		if(m_configuration->getIOEntry(IHCServerDefs::OUTPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
+			IHCEvent* entryEvent = new IHCEvent();
+			entryEvent->m_event = IHCServerDefs::ENTRY;
+			entryEvent->m_io = (IHCOutput*)sub;
+			m_eventList.push_back(entryEvent);
+		}
 		pthread_cond_signal(&m_eventCond);
 	} else if(dynamic_cast<IHCInput*>(sub) != 0) {
 		IHCEvent* event = new IHCEvent();
@@ -190,6 +197,12 @@ void IHCServer::update(Subject* sub, void* obj) {
 			newAlarmState = event->m_io->getState();
 		}
 		m_eventList.push_back(event);
+		if(m_configuration->getIOEntry(IHCServerDefs::INPUTMODULE,event->m_io->getModuleNumber(),event->m_io->getIONumber())) {
+			IHCEvent* entryEvent = new IHCEvent();
+			entryEvent->m_event = IHCServerDefs::ENTRY;
+			entryEvent->m_io = (IHCOutput*)sub;
+			m_eventList.push_back(entryEvent);
+		}
 		pthread_cond_signal(&m_eventCond);
 	}
 	pthread_mutex_unlock(&m_eventMutex);
@@ -237,6 +250,15 @@ void IHCServer::setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int 
 
 bool IHCServer::getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
 	return m_configuration->getIOAlarm(type,moduleNumber,ioNumber);
+}
+
+
+void IHCServer::setIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isEntry) {
+	m_configuration->setIOEntry(type,moduleNumber,ioNumber,isEntry);
+}
+
+bool IHCServer::getIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber) {
+	return m_configuration->getIOEntry(type,moduleNumber,ioNumber);
 }
 
 bool IHCServer::getAlarmState() {

@@ -101,6 +101,15 @@ void IHCServerEventWorker::thread() {
                                         response["ioNumber"] = json::Number(e->m_io->getIONumber());
                                         response["state"] = json::Boolean(e->m_io->getState());
                                 break;
+                                case IHCServerDefs::ENTRY:
+                                        response["type"] = json::String("entryEvent");
+                                        response["moduleNumber"] = json::Number(e->m_io->getModuleNumber());
+                                        response["ioNumber"] = json::Number(e->m_io->getIONumber());
+                                break;
+				case IHCServerDefs::UNKNOWN:
+					continue;
+				default:
+				break;
                         }
 
 			delete e;

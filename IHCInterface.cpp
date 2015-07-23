@@ -30,6 +30,8 @@
 #include <ctime>
 #include "Configuration.h"
 
+#define DEBUG (0)
+
 static unsigned int packets = 0;
 
 void printTimeStamp(time_t t = 0) {
@@ -91,7 +93,6 @@ void IHCInterface::changeInput(IHCInput* input, bool shouldActivate) {
 	data.push_back((unsigned char) (((input->getModuleNumber()-1)*10)+input->getInputNumber()));
 	data.push_back(shouldActivate ? (unsigned char)1 : (unsigned char)0);
 	IHCRS485Packet packet(IHCDefs::ID_IHC,IHCDefs::ACT_INPUT,&data);
-	packet.print();
 	pthread_mutex_lock(&m_packetQueueMutex);
 	m_packetQueue.push_back(packet);
 	pthread_mutex_unlock(&m_packetQueueMutex);
@@ -161,7 +162,7 @@ IHCRS485Packet IHCInterface::getPacket(UART& uart, int ID, bool useTimeout) thro
 		packet.push_back(c);
 		IHCRS485Packet p(packet);
 		if(p.isComplete() && p.getID() == ID) {
-//			p.print();
+			if(DEBUG) p.print();
 //			++packets;
 //			printf("IHCInterface received: %d packets\t\t\t\r",packets);
 //			fflush(stdout);
@@ -205,11 +206,11 @@ void IHCInterface::thread() {
 					}
 					pthread_mutex_unlock(&m_packetQueueMutex);
 					if(!sendPackets) {
-					if(lastUpdated == IHCDefs::INP_STATE) {
-						m_port->write(getOutputPacket.getPacket());
-					} else {
-						m_port->write(getInputPacket.getPacket());
-					}
+						if(lastUpdated == IHCDefs::INP_STATE) {
+							m_port->write(getOutputPacket.getPacket());
+						} else {
+							m_port->write(getInputPacket.getPacket());
+						}
 					}
 				break;
 				case IHCDefs::INP_STATE:

@@ -82,6 +82,9 @@ public:
 	void setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isAlarm);
 	bool getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
 
+	void setIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isEntry);
+	bool getIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
+
 	bool getAlarmState();
 	void setAlarmState(bool alarmState);
 

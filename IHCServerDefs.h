@@ -46,8 +46,13 @@ namespace IHCServerDefs {
 		INPUT_CHANGED,
 		OUTPUT_CHANGED,
 		ALARM_ARMED,
-		ALARM_DISARMED
+		ALARM_DISARMED,
+		ENTRY
 	};
+
+	const static unsigned int IO_FLAG_ALARM = 1;
+	const static unsigned int IO_FLAG_PROTECTED = 2;
+	const static unsigned int IO_FLAG_ENTRY = 2;
 };
 
 #endif /* IHCSERVERDEFS_H */

@@ -61,6 +61,9 @@ public:
 	bool getIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
 	void setIOAlarm(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isAlarm);
 
+	bool getIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber);
+	void setIOEntry(enum IHCServerDefs::Type type, int moduleNumber, int ioNumber, bool isEntry);
+
 	// More generic interface
 	std::string getValue(std::string variable);
 	void setValue(std::string variable, std::string value);
@@ -79,6 +82,7 @@ private:
 	std::map<enum IHCServerDefs::Type,std::map<int,std::map<int,std::string> > > m_ioDescriptions;
 	std::map<enum IHCServerDefs::Type,std::map<int,std::map<int,bool> > > m_ioProtected;
 	std::map<enum IHCServerDefs::Type,std::map<int,std::map<int,bool> > > m_ioAlarm;
+	std::map<enum IHCServerDefs::Type,std::map<int,std::map<int,bool> > > m_ioEntry;
 
 	std::map<std::string,std::string> m_variables;
 };
