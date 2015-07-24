@@ -3,6 +3,7 @@
 #include <openssl/sha.h>
 #include <list>
 #include <cstdio>
+#include "IHCServerDefs.h"
 
 class Userlevel::UserlevelToken {
 public:
@@ -32,7 +33,7 @@ Level* basic = 0;
 
 void Userlevel::init() {
 	if(levels.empty()) {
-		std::string adminpw_sha = Configuration::getInstance()->getValue("ADMIN_SHA1");
+		std::string adminpw_sha = Configuration::getInstance()->getValue(IHCServerDefs::ADMIN_SHA1_CONFKEY);
 		if(adminpw_sha == "") {
 			unsigned char* md = new unsigned char[SHA_DIGEST_LENGTH];
 			unsigned char* pw = (unsigned char*)"12345678";
@@ -44,7 +45,7 @@ void Userlevel::init() {
 			adminpw_sha = ist.str();
 			delete[] md;
 		}
-		std::string superuserpw_sha = Configuration::getInstance()->getValue("SUPERUSER_SHA1");
+		std::string superuserpw_sha = Configuration::getInstance()->getValue(IHCServerDefs::SUPERUSER_SHA1_CONFKEY);
 		if(superuserpw_sha == "") {
 			unsigned char* md = new unsigned char[SHA_DIGEST_LENGTH];
 			unsigned char* pw = (unsigned char*)"1234";
@@ -66,9 +67,9 @@ void Userlevel::init() {
 void Userlevel::setCode(enum Userlevel::Levels level, std::string code) {
 	std::string var = "";
 	if(level == Userlevel::ADMIN) {
-		var = "ADMIN_SHA1";
+		var = IHCServerDefs::ADMIN_SHA1_CONFKEY;
 	} else if(level == Userlevel::SUPERUSER) {
-		var = "SUPERUSER_SHA1";
+		var = IHCServerDefs::SUPERUSER_SHA1_CONFKEY;
 	}
 	if(var == "") {
 		return;
@@ -96,9 +97,9 @@ void Userlevel::setCodeSHA(Userlevel::Levels level, std::string codeSHA)
 {
 	std::string var = "";
 	if(level == Userlevel::ADMIN) {
-		var = "ADMIN_SHA1";
+		var = IHCServerDefs::ADMIN_SHA1_CONFKEY;
 	} else if(level == Userlevel::SUPERUSER) {
-		var = "SUPERUSER_SHA1";
+		var = IHCServerDefs::SUPERUSER_SHA1_CONFKEY;
 	}
 	if(var == "") {
 		return;

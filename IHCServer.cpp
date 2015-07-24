@@ -35,10 +35,10 @@ IHCServer::IHCServer() :
 	// Initialize and load the configuration
 	m_configuration = Configuration::getInstance();
 	try {
-		printf("IHCServer loading configuration.\n");
+		printf("IHCServer: Loading configuration.\n");
 		m_configuration->load();
 	} catch (bool& ex) {
-		printf("Error in configuration, exitting... Edit config file manually.\n");
+		printf("IHCServer: Error in configuration, exitting... Edit config file manually.\n");
 		exit(1);
 	}
 
@@ -46,7 +46,12 @@ IHCServer::IHCServer() :
 	Userlevel::init();
 
 	// Create the interface and tcp socket servers
-	m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
+	try {
+		m_ihcinterface = new IHCInterface(m_configuration->getSerialDevice());
+	} catch(bool& ex) {
+		printf("IHCServer: Could not instantiate IHC interface, check configuration...\n");
+		exit(1);
+	}
 	m_requestServer = new TCPSocketServer(m_requestServerPort,this);
 	m_eventServer = new TCPSocketServer(m_eventServerPort,this);
 	m_httpServer = IHCHTTPServer::getInstance();
@@ -264,8 +269,8 @@ bool IHCServer::getAlarmState() {
 void IHCServer::setAlarmState(bool alarmState) {
 	bool oldState = m_alarmState;
 	m_alarmState = alarmState;
-	printf("New AlarmState %s, old alarmstate %s\n",(m_alarmState ? "TRUE" : "FALSE"), (oldState ? "TRUE" : "FALSE")); 
 	if(m_alarmState != oldState) {
+		printf("IHCServer: New AlarmState %s, old alarmstate %s\n",(m_alarmState ? "TRUE" : "FALSE"), (oldState ? "TRUE" : "FALSE")); 
 		IHCEvent* event = new IHCEvent();
 		event->m_event = m_alarmState ? IHCServerDefs::ALARM_ARMED : IHCServerDefs::ALARM_DISARMED;
 /*		for(unsigned int j = 1; j<=8; j++) {

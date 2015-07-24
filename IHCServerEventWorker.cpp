@@ -81,6 +81,7 @@ void IHCServerEventWorker::thread() {
                                         response["ioNumber"] = json::Number(e->m_io->getIONumber());
                                 break;
 				case IHCServerDefs::UNKNOWN:
+					delete e;
 					continue;
 				default:
 				break;

@@ -6,6 +6,7 @@
 
 #ifndef IHCSERVERDEFS_H
 #define IHCSERVERDEFS_H
+#include <string>
 
 namespace IHCServerDefs {
         enum Type {
@@ -27,6 +28,10 @@ namespace IHCServerDefs {
 	const static unsigned int IO_FLAG_ALARM = 1;
 	const static unsigned int IO_FLAG_PROTECTED = 2;
 	const static unsigned int IO_FLAG_ENTRY = 2;
+
+	static const std::string HTTP_PORT_CONFKEY = "HTTP_PORT";
+	static const std::string ADMIN_SHA1_CONFKEY = "ADMIN_SHA1";
+	static const std::string SUPERUSER_SHA1_CONFKEY = "SUPERUSER_SHA1";
 };
 
 #endif /* IHCSERVERDEFS_H */

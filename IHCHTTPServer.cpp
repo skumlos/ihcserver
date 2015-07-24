@@ -5,6 +5,7 @@
 #include "IHCInput.h"
 #include "IHCOutput.h"
 #include "Configuration.h"
+#include "IHCServerDefs.h"
 #include <sstream>
 #include <cstdio>
 
@@ -15,14 +16,14 @@ IHCHTTPServer* IHCHTTPServer::getInstance() {
 	pthread_mutex_lock(&m_instanceMutex);
 	if(m_instance == NULL) {
 		Configuration* c = Configuration::getInstance();
-		std::istringstream portStr(c->getValue("HTTP_PORT"));
+		std::istringstream portStr(c->getValue(IHCServerDefs::HTTP_PORT_CONFKEY));
 		int port = 0;
 		portStr >> port;
 		if(portStr.fail() || port < 80 || port > 65535) {
 			port = 8081;
 			std::ostringstream o;
 			o << port;
-			c->setValue("HTTP_PORT",o.str());
+			c->setValue(IHCServerDefs::HTTP_PORT_CONFKEY,o.str());
 			c->save();
 		}
 		m_instance = new IHCHTTPServer(port);

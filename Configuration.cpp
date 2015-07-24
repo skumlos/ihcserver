@@ -3,6 +3,10 @@
 #include "3rdparty/cajun-2.0.2/json/writer.h"
 #include <fstream>
 #include <iostream>
+#include "utils/Filesystem.h"
+#include "IHCServerDefs.h"
+
+#define CONFIG_FILE_PATH  "/etc/ihcserver.cfg"
 
 pthread_mutex_t Configuration::mutex = PTHREAD_MUTEX_INITIALIZER;
 Configuration* Configuration::instance = 0;
@@ -25,9 +29,16 @@ Configuration::Configuration() :
 
 void Configuration::load() throw (bool) {
 	pthread_mutex_lock(&mutex);
-	std::fstream configFile;
-	configFile.open("/etc/ihcserver.cfg",std::fstream::in);
+	std::ios::openmode flags = std::fstream::in;
 	bool saveConfiguration = false;
+	if(!Filesystem::doesFileExist(CONFIG_FILE_PATH)) {
+		printf("Configuration: No configuration file found (%s), creating it...\n",CONFIG_FILE_PATH);
+		flags |= std::fstream::out;
+		flags |= std::fstream::trunc;
+		saveConfiguration = true;
+	}
+	std::fstream configFile;
+	configFile.open(CONFIG_FILE_PATH,flags);
 	if(configFile.is_open()) {
 		try {
 			configFile.seekg (0, std::ios::end);
@@ -43,18 +54,18 @@ void Configuration::load() throw (bool) {
 			try {
 				json::String serialDevice = conf["serialDevice"];
 				m_serialDevice = serialDevice.Value();
-				printf("Using serial device %s\n",m_serialDevice.c_str());
+				printf("Configuration: Using serial device %s\n",m_serialDevice.c_str());
 			} catch (std::exception& ex) {
-				printf("Error parsing serial device from configfile (%s), defaulting to /dev/ttyS0\n",ex.what());
+				printf("Configuration: Error parsing serial device from configfile (%s), defaulting to /dev/ttyS0\n",ex.what());
 				m_serialDevice = "/dev/ttyS0";
 				saveConfiguration = true;
 			}
 			try {
 				json::Boolean flowControl = conf["useHWFlowControl"];
 				m_useHWFlowControl = flowControl.Value();
-				printf("%s serial flow control\n",(m_useHWFlowControl ? "Using" : "Not using"));
+				printf("Configuration: %s serial flow control\n",(m_useHWFlowControl ? "Using" : "Not using"));
 			} catch (std::exception& ex) {
-				printf("Error parsing flow control from configfile (%s), defaulting to false\n",ex.what());
+				printf("Configuration: Error parsing flow control from configfile (%s), defaulting to false\n",ex.what());
 				saveConfiguration = true;
 			}
 			try {
@@ -63,12 +74,12 @@ void Configuration::load() throw (bool) {
 					if(webroot.Value().at(0) == '/') {
 						m_webroot = webroot.Value();
 					} else {
-						printf("webroot is not an absolute path! ");
+						printf("Configuration: Webroot is not an absolute path! ");
 					}
 				}
-				printf("Using webroot \"%s\"\n",m_webroot.c_str());
+				printf("Configuration: Using webroot \"%s\"\n",m_webroot.c_str());
 			} catch (std::exception& ex) {
-				printf("Error parsing webroot from configfile (%s), defaulting to %s\n",m_webroot.c_str(),ex.what());
+				printf("Configuration: Error parsing webroot from configfile (%s), defaulting to %s\n",m_webroot.c_str(),ex.what());
 				saveConfiguration = true;
 			}
 			try {
@@ -81,7 +92,7 @@ void Configuration::load() throw (bool) {
 					m_variables[key] = value;
 				}
 			} catch (std::exception& ex) {
-				printf("No variables found or problem in key/value deciphering (%s)\n",ex.what());
+				printf("Configuration: No variables found or problem in key/value deciphering (%s)\n",ex.what());
 			}
 			try {
 				json::Array::const_iterator it;
@@ -108,7 +119,7 @@ void Configuration::load() throw (bool) {
 							m_ioEntry[IHCServerDefs::INPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isEntry.Value();
 						}
 					} catch(std::exception& ex) {
-						printf("No I/O definitions found in configuration (%s)\n",ex.what());
+						printf("Configuration: No I/O definitions found in configuration (%s)\n",ex.what());
 					}
 				}
 				json::Array outputModulesConfiguration = modulesConfiguration["outputModules"];
@@ -133,36 +144,40 @@ void Configuration::load() throw (bool) {
 							m_ioEntry[IHCServerDefs::OUTPUTMODULE][moduleNumber.Value()][ioNumber.Value()] = isEntry.Value();
 						}
 					} catch(std::exception& ex) {
-						printf("No I/O definitions found in configuration (%s)\n",ex.what());
+						printf("Configuration: No I/O definitions found in configuration (%s)\n",ex.what());
 					}
 				}
 			} catch(std::exception& ex) {
-				printf("Could not find any module configuration, will write default to config file (%s)\n",ex.what());
+				printf("Configuration: Could not find any module configuration, will write default to config file (%s)\n",ex.what());
+				saveConfiguration = true;
 				pthread_mutex_unlock(&mutex);
 				throw false;
 			}
 			configFile.close();
 		} catch (bool ex) {
-			printf("Could not read configuration from config file, creating default file\n");
-			if(m_serialDevice == "") {
-				m_serialDevice = "/dev/ttyS0";
-			}
-			for(unsigned int j = 1; j <= 8; j++) {
-				m_moduleStates[IHCServerDefs::INPUTMODULE][j] = true;
-			}
-			for(unsigned int j = 1; j <= 16; j++) {
-				m_moduleStates[IHCServerDefs::OUTPUTMODULE][j] = true;
-			}
+			printf("Configuration: Could not read configuration from config file, creating default file\n");
 			saveConfiguration = true;
 			configFile.close();
 		}
 	} else {
-		printf("Could not access configuration file\n");
+		printf("Configuration: Could not access configuration file\n");
 		pthread_mutex_unlock(&mutex);
 		throw false;
 	}
 	if(saveConfiguration) {
-		printf("Saving default configuration\n");
+		printf("Configuration: Saving default configuration\n");
+		if(m_serialDevice == "") {
+			m_serialDevice = "/dev/ttyS0";
+		}
+		for(unsigned int j = 1; j <= 8; j++) {
+			m_moduleStates[IHCServerDefs::INPUTMODULE][j] = false;
+		}
+		for(unsigned int j = 1; j <= 16; j++) {
+			m_moduleStates[IHCServerDefs::OUTPUTMODULE][j] = false;
+		}
+		m_variables[IHCServerDefs::HTTP_PORT_CONFKEY] = "";
+
+		printf("You should now edit %s manually, most importantly the serial port and the web port, rest is web UI configurable...\n",CONFIG_FILE_PATH);
 		pthread_mutex_unlock(&mutex);
 		save();
 		throw false;
@@ -173,7 +188,7 @@ void Configuration::load() throw (bool) {
 void Configuration::save() {
 	pthread_mutex_lock(&mutex);
 	std::fstream configFile;
-	configFile.open("/etc/ihcserver.cfg",(std::ios_base::in | std::ios_base::out | std::ios_base::trunc));
+	configFile.open(CONFIG_FILE_PATH,(std::ios_base::in | std::ios_base::out | std::ios_base::trunc));
 	if(configFile.is_open()) {
 		json::Object conf;
 		conf["serialDevice"] = json::String(m_serialDevice);

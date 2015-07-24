@@ -49,7 +49,7 @@ IHCInterface::IHCInterface(std::string rs485port)
 //		m_port = new UART(rs485port,true);
 		m_port->setSpeed(B19200);
 	} catch (std::exception& ex) {
-		printf("IHCInterface: Could not init UART (%s)",ex.what());
+		printf("IHCInterface: Could not init UART (%s)\n",ex.what());
 		throw false;
 	}
 
