@@ -60,6 +60,8 @@ Removed external webserver requirement and moved webinterface into package
 
 Uses websocket for events
 
+Added Entry stuff
+
 Many bugfixes and lots of small changes
 
 Since 0.2:
