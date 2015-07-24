@@ -12,7 +12,6 @@ class TCPSocket;
 class IHCEvent;
 class IHCServer;
 
-//class IHCHTTPServerWorker : public Thread, public Observer {
 class IHCHTTPServerWorker : public IHCServerWorker, public Observer {
 public:
 	IHCHTTPServerWorker(TCPSocket* connectedSocket);
@@ -27,13 +26,6 @@ private:
 	bool pingWebSocket();
 	void webSocketEventHandler();
 	std::string decodeWebSocketPacket(const unsigned char* packet, unsigned int length);
-//	void getAll(json::Object& resp);
-//	void getAlarmState(json::Object& response);
-//	void keypadAction(json::Object& req, json::Object& response);
-//	void toggleOutput(json::Object& req, json::Object& response);
-//	void activateInput(json::Object& req, bool shouldActivate, json::Object& response);
-//	void getModuleConfiguration(json::Object& req, json::Object& resp);
-//	void setModuleConfiguration(json::Object& req, json::Object& resp);
 	static pthread_mutex_t m_tokenMapMutex;
 	static std::map<std::string,Userlevel::UserlevelToken*> m_tokens;
 	TCPSocket* m_socket;
