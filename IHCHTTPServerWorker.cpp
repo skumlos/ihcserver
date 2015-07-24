@@ -17,10 +17,23 @@
 #include <openssl/sha.h>
 #include "3rdparty/cajun-2.0.2/json/reader.h"
 #include "3rdparty/cajun-2.0.2/json/writer.h"
-pthread_mutex_t IHCHTTPServerWorker::m_tokenMapMutex = PTHREAD_MUTEX_INITIALIZER;
+
+class TokenInfo {
+public:
+	TokenInfo(Userlevel::UserlevelToken* token,const std::string& clientID) :
+		m_token(token),m_clientID(clientID),m_lastUsed_s(time(NULL))
+	{};
+	Userlevel::UserlevelToken* m_token;
+	std::string m_clientID;
+	time_t m_lastUsed_s;
+};
+
 pthread_mutex_t IHCHTTPServerWorker::m_allMutex = PTHREAD_MUTEX_INITIALIZER;
 unsigned int IHCHTTPServerWorker::m_all = 0;
-std::map<std::string,Userlevel::UserlevelToken*> IHCHTTPServerWorker::m_tokens;
+
+pthread_mutex_t IHCHTTPServerWorker::m_tokenMapMutex = PTHREAD_MUTEX_INITIALIZER;
+//std::map<std::string,Userlevel::UserlevelToken*> IHCHTTPServerWorker::m_tokens;
+std::list<TokenInfo*> IHCHTTPServerWorker::m_tokens;
 
 IHCHTTPServerWorker::IHCHTTPServerWorker(TCPSocket* connectedSocket) :
 	m_socket(connectedSocket),
@@ -41,6 +54,7 @@ IHCHTTPServerWorker::~IHCHTTPServerWorker() {
 
 void IHCHTTPServerWorker::thread() {
 	std::string webroot = Configuration::getInstance()->getWebroot();
+
 	try {
 		int slept_s = 0;
 		while(m_socket->poll(1000)) {
@@ -69,10 +83,31 @@ void IHCHTTPServerWorker::thread() {
 				json::Object response;
 
 				std::string id = json::String(request["id"]).Value();
+				TokenInfo* tokenInfo = NULL;
 				pthread_mutex_lock(&m_tokenMapMutex);
-				Userlevel::UserlevelToken* &token = m_tokens[id];
+				std::list<TokenInfo*>::iterator it = m_tokens.begin();
+				try {
+					for(; it != m_tokens.end(); ++it) {
+						while(time(NULL) - (*it)->m_lastUsed_s > 10) {
+							std::list<TokenInfo*>::iterator del = it;
+							++it;
+							delete *del;
+							m_tokens.erase(del);
+							if(it == m_tokens.end()) throw false;
+						}
+						if((*it)->m_clientID == id) {
+							tokenInfo = (*it);
+							tokenInfo->m_lastUsed_s = time(NULL);
+							break;
+						}
+					}
+				} catch (bool& ex) {}
+				if(tokenInfo == NULL) {
+					tokenInfo = new TokenInfo((Userlevel::UserlevelToken*)NULL,id);
+					m_tokens.push_back(tokenInfo);
+				}
 				pthread_mutex_unlock(&m_tokenMapMutex);
-
+				Userlevel::UserlevelToken* &token = tokenInfo->m_token;
 				try {
 					std::string req = json::String(request["type"]).Value();
 					if(req == "getAll") {

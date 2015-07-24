@@ -141,6 +141,8 @@ void Userlevel::loginSHA(Userlevel::UserlevelToken*& token, std::string codeSHA)
 }
 
 enum Userlevel::Levels Userlevel::getUserlevel(Userlevel::UserlevelToken* &token) {
+	if(token == NULL) return Userlevel::BASIC;
+
 	std::list<Level*>::iterator it = levels.begin();
 
 	for(;it != levels.end(); it++) {
@@ -154,6 +156,7 @@ enum Userlevel::Levels Userlevel::getUserlevel(Userlevel::UserlevelToken* &token
 std::string Userlevel::tokenToString(Userlevel::UserlevelToken*& token)
 {
 	std::string levelString = "BASIC";
+	if(token == NULL) return levelString;
 	std::list<Level*>::const_iterator it = levels.begin();
 	for(;it != levels.end(); it++) {
 		if(token == &(*it)->m_token) {
