@@ -54,7 +54,7 @@ IHCHTTPServerWorker::~IHCHTTPServerWorker() {
 
 void IHCHTTPServerWorker::thread() {
 	std::string webroot = Configuration::getInstance()->getWebroot();
-
+	int tokenTimeout_s = 300;
 	try {
 		int slept_s = 0;
 		while(m_socket->poll(1000)) {
@@ -88,7 +88,7 @@ void IHCHTTPServerWorker::thread() {
 				std::list<TokenInfo*>::iterator it = m_tokens.begin();
 				try {
 					for(; it != m_tokens.end(); ++it) {
-						while(time(NULL) - (*it)->m_lastUsed_s > 10) {
+						while(time(NULL) - (*it)->m_lastUsed_s >= tokenTimeout_s) {
 							std::list<TokenInfo*>::iterator del = it;
 							++it;
 							delete *del;
