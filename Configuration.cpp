@@ -177,7 +177,7 @@ void Configuration::load() throw (bool) {
 		}
 		m_variables[IHCServerDefs::HTTP_PORT_CONFKEY] = "";
 
-		printf("You should now edit %s manually, most importantly the serial port and the web port, rest is web UI configurable...\n",CONFIG_FILE_PATH);
+		printf("You should now edit %s manually, most importantly the serial port, the webinterface path and the httpserver port, rest is web UI configurable...\n",CONFIG_FILE_PATH);
 		pthread_mutex_unlock(&mutex);
 		save();
 		throw false;
