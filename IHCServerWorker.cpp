@@ -209,6 +209,7 @@ void IHCServerWorker::getAll(json::Object& resp) {
 				inputState["description"] = json::String(ihcserver->getIODescription(IHCServerDefs::INPUTMODULE,j,k));
 				inputState["protected"] = json::Boolean(ihcserver->getIOProtected(IHCServerDefs::INPUTMODULE,j,k));
 				inputState["alarm"] = json::Boolean(ihcserver->getIOAlarm(IHCServerDefs::INPUTMODULE,j,k));
+				inputState["entry"] = json::Boolean(ihcserver->getIOEntry(IHCServerDefs::INPUTMODULE,j,k));
 				inputStates.Insert(inputState);
 			}
 			module["inputStates"] = inputStates;
@@ -231,6 +232,7 @@ void IHCServerWorker::getAll(json::Object& resp) {
 				outputState["description"] = json::String(ihcserver->getIODescription(IHCServerDefs::OUTPUTMODULE,j,k));
 				outputState["protected"] = json::Boolean(ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,j,k));
 				outputState["alarm"] = json::Boolean(ihcserver->getIOAlarm(IHCServerDefs::OUTPUTMODULE,j,k));
+				outputState["entry"] = json::Boolean(ihcserver->getIOEntry(IHCServerDefs::OUTPUTMODULE,j,k));
 				outputStates.Insert(outputState);
 			}
 			module["outputStates"] = outputStates;
