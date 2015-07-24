@@ -4,3 +4,6 @@
 [submodule "webinterface"]
 	path = webinterface
 	url = git@192.168.1.1:/opt/raid/git/ihcsite.git
+[submodule "ihcclient"]
+	path = ihcclient
+	url = git@192.168.1.1:/opt/raid/git/ihcclient.git
