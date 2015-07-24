@@ -22,7 +22,8 @@ talking to the controller, and the server that can be communicated with via
 sockets and JSON encoded packets. For the JSON packet stuff, the cajun JSON
 C++ library is used. The library is isolated under the 3rdparty directory, 
 along with other code (like base64 stuf) not written by me.
-It now also has a integrated webserver to deal with the webinterface.
+It now also has an integrated webserver to deal with the webinterface, to
+avoid apache2 or lighttpd overhead...
 
 The software is written for Linux, and requires pthreads and openssl for 
 running. It has been tested on Raspbian with a Raspberry Pi using the
@@ -82,8 +83,10 @@ Added ID stuff to isolate users connected.
 
 Other small fixes and improvements.
 
-6. TODO
+6. TODO / Known issues
 
 Change to ssl sockets as the current SHA stuff is a bit retarded...
+
+Make webinterface know when the token is invalidated
 
 2015, Martin Hejnfelt (martin@hejnfelt.com)
