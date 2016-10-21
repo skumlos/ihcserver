@@ -193,11 +193,16 @@ void IHCInterface::thread() {
 			IHCRS485Packet packet = getPacket(*m_port,id,false);
 			switch(packet.getDataType()) {
 				case IHCDefs::ACK:
+					if(DEBUG) printf("IHCInterface: Packet was ACK'ed\n");
 				break;
 				case IHCDefs::DATA_READY:
 					pthread_mutex_lock(&m_packetQueueMutex);
 					if(!m_packetQueue.empty() && sendPackets) {
 						IHCRS485Packet toSend = m_packetQueue.front();
+						if(DEBUG) {
+							printf("IHCInterface: Sending packet\n");
+							toSend.print();
+						}
 						m_port->write(toSend.getPacket());
 						m_packetQueue.pop_front();
 						sendPackets = true;
