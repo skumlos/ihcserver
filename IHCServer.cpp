@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <cstdio>
 
-const std::string IHCServer::version = "0.3";
+const std::string IHCServer::version = "0.3.1";
 
 IHCServer* IHCServer::m_instance = NULL;
 pthread_mutex_t IHCServer::m_instanceMutex = PTHREAD_MUTEX_INITIALIZER;
