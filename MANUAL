@@ -1,0 +1,127 @@
+DISCLAIMER: This was written by Steffen Jensen, and not the author of IHCServer (Martin Hejnfelt).
+
+Installation Guide
+
+This guide assumes you have a Raspberry Pi installed with Raspbian OS and connected to your network. In the following instructions, replace <ip> with the IP address of the Raspberry (e.g. 192.168.1.99).
+
+This guide further assumes that you don’t have a monitor and keyboard connected to your Raspberry. If you do, a few initial steps will be a little easier.
+
+Step 1 : Download the distribution file to root dir of the Pi
+
+First download the distribution file (ihcserver-0.3.1.tar.gz) to your computer. On a Mac or a linux computer, use a prompt (terminal on mac) to copy the file with scp
+
+scp ihcserver-0.3.1.tar.gz pi@<ip>:.
+
+On Windows, you will need to install an SCP application.
+
+Step 2 : Unpack
+
+Connect to the Raspberry - either from an SSH application or using this command on a prompt.
+
+ssh -l pi <ip>
+
+First check to see that the distribution is where it is supposed to be
+
+ls -l ihc*   
+
+This should show the file you just transferred.
+
+Now, unpack the file with this command
+
+tar xvf ihcserver-0.3.1.tar.gz
+
+This creates an ‘ihc’ subdirectory.
+
+Enter the directory with
+
+cd ihc
+
+Step 3 : Build
+
+Start with this command (which takes a little while to complete)
+sudo apt-get update
+
+Follow with this
+
+sudo apt-get install libssl-dev  
+
+(and answer Y to continue)
+
+This will install a required software library
+
+Now the application must be build to create an ‘executable’. Simply type
+
+make
+
+Don’t worry about the warnings displayed in the process.
+
+To check this, type
+
+ ls -l ihcserver
+
+That should list one file - and this is the ihcserver application
+
+Step 4 : Configuration
+
+Write this command
+
+sudo ./ihcserver
+
+It will create a sample configuration file that you will need to edit manually. One option is to use the ‘vi’ editor with this command.
+
+sudo vi /etc/ihcserver.cfg
+
+ (If you don’t know how to use vi, you will need to learn about it before attempting to use it. You may want to use the nano editor instead.)
+
+There are three changes you need to make. Here are the correct lines that matches the installation procedure described so far :
+
+In the first part of the file
+
+"serialDevice" : "/dev/ttyAMA0"
+
+"webroot" : "/home/pi/ihc/webinterface"
+
+and at the bottom
+
+"key" : "HTTP_PORT",
+"value" : "8899"
+
+Save the file
+
+The serial port which is used for communication with the IHC Controller can (by default) be used for ‘console’ access to the Raspberry. This must be disabled.
+ 
+sudo vi /boot/cmdline.txt
+
+and change the contents to this
+
+Remove this part ‘console=ttyAMA0,115200’  so it becomes
+
+dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline rootwait
+
+(More recent OS release may look differently)
+
+One more file needs to be changed
+sudo vi /etc/inittab
+At the end of the file, insert a # to disable more use of the serial port
+#T0:23:respawn:/sbin/getty -L ttyAMA0 115200 vt100
+save the file and reboot with
+
+sudo reboot
+
+Time to connect things
+
+Cut the power to the Raspberry and mount the Linksprite board on the Raspberry.
+
+On the Linksprite, there are ‘A’ and ‘B’ terminals. The IHC Controller has RS485 + and - terminals. ‘A’ should be connected to *+’ and ‘B’ connected to ‘-’ (twisted pair cable recommended)
+
+Start up the Raspberry again and start the ihc server with
+
+cd ihc
+sudo ./ihcserver
+
+The should produce some useful output and most likely display some IHC output states.
+
+Now, use a web browser and connect to http://<ip>:8899
+
+Login as admin with ‘123456768’ or as superuser with ‘1234’. Then start by adding modules and naming your inputs and outputs.
+
