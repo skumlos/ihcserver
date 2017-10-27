@@ -90,7 +90,10 @@ void IHCInterface::changeOutput(IHCOutput* output, bool newState) {
 
 void IHCInterface::changeInput(IHCInput* input, bool shouldActivate) {
 	std::vector<unsigned char> data;
-	data.push_back((unsigned char) (((input->getModuleNumber()-1)*10)+input->getInputNumber()));
+	unsigned int inp = input->getInputNumber();
+	inp = ((input->getModuleNumber()-1)*20)+((inp > 8)?inp+2:inp);
+	data.push_back((unsigned char)(inp));
+//	data.push_back((unsigned char) (((input->getModuleNumber()-1)*10)+input->getInputNumber()));
 	data.push_back(shouldActivate ? (unsigned char)1 : (unsigned char)0);
 	IHCRS485Packet packet(IHCDefs::ID_IHC,IHCDefs::ACT_INPUT,&data);
 	pthread_mutex_lock(&m_packetQueueMutex);
@@ -231,7 +234,7 @@ void IHCInterface::thread() {
 					sendPackets = true;
 				break;
 			}
-		} catch (std::exception& ex) {
+		} catch (const std::exception& ex) {
 			printf("IHCInterface: Caught exception in communication thread (%s)\n",ex.what());
 			exit(1);
 		}

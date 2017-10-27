@@ -170,6 +170,25 @@ void IHCServerWorker::toggleOutput(Userlevel::UserlevelToken* &token, json::Obje
 	return;
 }
 
+void IHCServerWorker::setOutput(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response) {
+	IHCServer* ihcserver = IHCServer::getInstance();
+	int moduleNumber = json::Number(req["moduleNumber"]).Value();
+	int outputNumber = json::Number(req["ioNumber"]).Value();
+	bool state = json::Boolean(req["state"]).Value();
+	if((ihcserver->getIOProtected(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber) ||
+		ihcserver->getIOAlarm(IHCServerDefs::OUTPUTMODULE,moduleNumber,outputNumber)) &&
+		(Userlevel::getUserlevel(token) != Userlevel::ADMIN && Userlevel::getUserlevel(token) != Userlevel::SUPERUSER))
+	{
+		throw false;
+	}
+	ihcserver->setOutputState(moduleNumber,outputNumber,state);
+	response["type"] = json::String("outputState");
+	response["moduleNumber"] = json::Number(moduleNumber);
+	response["outputNumber"] = json::Number(outputNumber);
+	response["state"] = json::Boolean(!state);
+	return;
+}
+
 void IHCServerWorker::activateInput(Userlevel::UserlevelToken* &token, json::Object& req, bool shouldActivate, json::Object& response) {
 	IHCServer* ihcserver = IHCServer::getInstance();
 	int moduleNumber = json::Number(req["moduleNumber"]).Value();

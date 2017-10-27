@@ -101,7 +101,7 @@ void IHCHTTPServerWorker::thread() {
 							break;
 						}
 					}
-				} catch (bool& ex) {}
+				} catch (const bool ex) {}
 				if(tokenInfo == NULL) {
 					tokenInfo = new TokenInfo((Userlevel::UserlevelToken*)NULL,id);
 					m_tokens.push_back(tokenInfo);
@@ -114,6 +114,8 @@ void IHCHTTPServerWorker::thread() {
 						getAll(response);
 					} else if(req == "toggleOutput") {
 						toggleOutput(token,request,response);
+					} else if(req == "setOutput") {
+						setOutput(token,request,response);
 					} else if(req == "activateInput") {
 						activateInput(token,request,true,response);
 					} else if(req == "deactivateInput") {
@@ -140,7 +142,7 @@ void IHCHTTPServerWorker::thread() {
 					header << "Connection: close\r\n\r\n";
 					m_socket->send(header.str());
 					m_socket->send(ost.str());
-				} catch (bool ex) {
+				} catch (const bool ex) {
 					std::ostringstream header;
 					header << "HTTP/1.1 403 Forbidden\r\n";
 					header << "Content-Length: 0\r\n";
@@ -186,9 +188,9 @@ void IHCHTTPServerWorker::thread() {
 		} else if(buffer == "" && m_socket->peek() <= 0) {
 //			break;
 		}
-	} catch (std::exception& ex) {
+	} catch (const std::exception& ex) {
 		printf("IHCHTTPServerWorker: Exception in packet (%s)\n",ex.what());
-	} catch (bool ex) {
+	} catch (const bool ex) {
 		printf("IHCHTTPServerWorker: Unknown exception in packet\n");
 	}
 }
@@ -315,9 +317,9 @@ void IHCHTTPServerWorker::webSocketEventHandler() {
 				throw ex;
 			}
 		}
-	} catch (std::exception& ex) {
+	} catch (const std::exception& ex) {
 		printf("IHCHTTPServerWorker: WebSocketEventHandler caught exception (%s)\n",ex.what());
-	} catch (bool ex) {
+	} catch (const bool ex) {
 		printf("IHCHTTPServerWorker: WebSocketEventHandler caught exception\n");
 	}
 
@@ -366,7 +368,7 @@ bool IHCHTTPServerWorker::pingWebSocket() {
 		} else {
 			throw false;
 		}
-	} catch (bool ex) {
+	} catch (const bool ex) {
 		throw ex;
 	}
 	return true;

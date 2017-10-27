@@ -30,6 +30,8 @@ protected:
 
 	void toggleOutput(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response);
 
+	void setOutput(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& response);
+
 	void activateInput(Userlevel::UserlevelToken* &token, json::Object& req, bool shouldActivate, json::Object& response);
 
 	void getModuleConfiguration(Userlevel::UserlevelToken* &token, json::Object& req, json::Object& resp);
