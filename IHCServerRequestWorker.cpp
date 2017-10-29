@@ -59,6 +59,8 @@ void IHCServerRequestWorker::thread() {
 					getAll(response);
 				} else if(req == "toggleOutput") {
 					toggleOutput(m_token,request,response);
+				} else if(req == "setOutput") {
+					setOutput(m_token,request,response);
 				} else if(req == "activateInput") {
 					activateInput(m_token,request,true,response);
 				} else if(req == "deactivateInput") {
