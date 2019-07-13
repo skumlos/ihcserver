@@ -15,6 +15,9 @@ its models of the I/O, alternating between updating INPUT, then OUTPUT on the
 next permission. If there are any pending requests, like setting an output,
 IHCServer will issue these, and then continue updating.
 
+If you are a Domoticz user, you may be interested in this Domoticz plugin for 
+IHCServer: https://github.com/kjlisby/domoticz-ihc-plugin
+
 2. Software overview
 
 The software consists of 2 main parts, a IHC interface which does the actual
